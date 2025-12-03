@@ -1,9 +1,9 @@
-name: Build & Deploy Web App to S3
+name: Deploy HR Frontend App to AWS
 
 on:
   push:
-    branches: 
-      - main
+    branches:
+      - main      # pipeline executes whenever you push to main
 
 jobs:
   build-and-deploy:
@@ -11,32 +11,37 @@ jobs:
 
     defaults:
       run:
-        working-directory: app-7vshm2afcow1   # << Your web app folder
+        working-directory: app-7vshm2afcow1   # your web app folder
 
     steps:
+
+      # 1. Checkout source
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Install pnpm manually (fixes missing executable issue)
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # 3. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: pnpm
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
+      # 4. Install dependencies
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build (production)
+      # 5. Build production bundle
+      - name: Build production
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_APP_ID: app-7vshm2afcow1
         run: pnpm build
 
+      # 6. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -44,14 +49,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      - name: Upload build to S3
+      # 7. Deploy build output to S3
+      - name: Sync build to S3
         run: |
-          aws s3 sync ./dist s3://hrattendancewebapp \
-            --delete \
-            --cache-control "no-cache"
+          aws s3 sync ./dist s3://${{ secrets.S3_BUCKET }} --delete --cache-control "no-cache"
 
+      # 8. Purge CloudFront cache
       - name: Create CloudFront invalidation
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id d38c4oo8nszzaz \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
