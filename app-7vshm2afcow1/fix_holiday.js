@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:9090/api';
+// Allow override via environment variables when running this script locally.
+// Accepts: API_URL (full path including /api) or API_BASE (base url without /api)
+const API_BASE = process.env.API_BASE || process.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_URL = (process.env.API_URL || `${API_BASE.replace(/\/$/, '')}/api`);
 
 async function fixHoliday() {
     try {

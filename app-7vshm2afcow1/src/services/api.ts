@@ -19,7 +19,8 @@ import type {
 } from '@/types';
 import { mockPayroll } from './mockData';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
+// Prefer Vite env var, fall back to local dev server on port 5000 (matches .env.local)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 class ApiService {
   private client: AxiosInstance;
@@ -105,13 +106,19 @@ class ApiService {
     if (!this.refreshToken) return null;
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, this.refreshToken, {
-        headers: { 'Content-Type': 'text/plain' }
-      });
+      // Send a JSON body containing the refresh token. Some backends expect
+      // { refreshToken: '...' } rather than a raw string.
+      const response = await axios.post(`${API_BASE_URL}/api/auth/refresh`, { refreshToken: this.refreshToken });
 
-      const { accessToken } = response.data;
-      this.setToken(accessToken);
-      return accessToken;
+      const { accessToken, refreshToken: newRefreshToken } = response.data || {};
+      if (accessToken) {
+        this.setToken(accessToken);
+      }
+      if (newRefreshToken) {
+        this.setRefreshToken(newRefreshToken);
+      }
+
+      return accessToken || null;
     } catch (error) {
       console.error('Token refresh failed:', error);
       return null;
@@ -140,29 +147,23 @@ class ApiService {
   async login(email: string, password: string): Promise<AuthResponse> {
     const response = await this.client.post<any>('/api/auth/login', { email, password });
 
-    // Map backend response to frontend AuthResponse
+    // If backend doesn't return tokens, propagate an empty AuthResponse
+    if (!response?.data?.accessToken) {
+      return {
+        token: undefined,
+        refreshToken: undefined,
+        user: undefined
+      } as AuthResponse;
+    }
+
     const authResponse: AuthResponse = {
       token: response.data.accessToken,
       refreshToken: response.data.refreshToken,
-      user: {
-        ...response.data.user, // Assuming backend returns user object inside response, or we might need to fetch it separately if not present
-        // If backend doesn't return full user object in login response, we might need to fetch it:
-        // For now assuming backend structure based on AuthController:
-        // AuthResponse has accessToken, refreshToken. It does NOT seem to have 'user' field in the Java class I saw.
-        // Let's check AuthResponse.java again. It only had accessToken and refreshToken.
-        // So we need to decode the token or fetch user profile.
-        // Let's assume for now we need to fetch user profile after login if not returned.
-        // But wait, the frontend expects 'user' in AuthResponse.
-        // I will fetch the user profile immediately after login.
-      } as User
+      user: undefined as any
     };
 
-    // Actually, let's look at the Java AuthResponse again.
-    // It only has accessToken and refreshToken.
-    // So I need to fetch the user details.
-
-    this.setToken(authResponse.token);
-    this.setRefreshToken(authResponse.refreshToken);
+    this.setToken(authResponse.token!);
+    if (authResponse.refreshToken) this.setRefreshToken(authResponse.refreshToken!);
 
     // Fetch current user details
     const user = await this.getCurrentUser();

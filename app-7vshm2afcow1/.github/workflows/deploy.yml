@@ -1,0 +1,52 @@
+name: Build & Deploy to S3
+
+on:
+  push:
+    branches: main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (production)
+        env:
+          VITE_API_BASE_URL: http://hrattendancebackendapplication-env.eba-sibh2dna.ap-south-1.elasticbeanstalk.com/
+          VITE_APP_ID: app-7vshm2afcow1
+        run: pnpm build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1   # Set directly
+
+      - name: Upload build to S3
+        run: |
+          aws s3 sync dist/ s3://hrattendancewebapp \
+            --delete \
+            --cache-control "no-cache"
+
+      - name: Create CloudFront invalidation
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id d38c4oo8nszzaz \
+            --paths "/*"

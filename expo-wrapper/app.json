@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "Vite Viewer",
-    "slug": "vite-viewer",
+    "name": "HR System Mobile",
+    "slug": "hr-system-mobile",
     "version": "1.0.0",
+    "scheme": "hrsystem",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
@@ -15,16 +16,26 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "This app uses local network to connect to the development server",
+        "NSBonjourServices": ["_http._tcp"]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.hrsystem.mobile"
     },
     "web": {
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiUrl": "http://localhost:5000",
+      "webUrl": "http://localhost:5173"
     }
   }
 }
