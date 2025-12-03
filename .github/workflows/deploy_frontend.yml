@@ -1,61 +1,62 @@
-name: Deploy HR Frontend App to AWS
+name: Deploy HR Frontend to AWS
 
 on:
   push:
     branches:
-      - main      # pipeline executes whenever you push to main
+      - main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: app-7vshm2afcow1   # your web app folder
-
     steps:
-
-      # 1. Checkout source
-      - name: Checkout repository
+      # Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Install pnpm manually (fixes missing executable issue)
+      # Change working directory into your web app
+      - name: Switch to web app directory
+        run: cd app-7vshm2afcow1
+
+      # Install pnpm
       - name: Install pnpm
         run: npm install -g pnpm
 
-      # 3. Setup Node.js
+      # Setup Node
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
 
-      # 4. Install dependencies
+      # Install dependencies inside your frontend folder
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        working-directory: app-7vshm2afcow1
+        run: pnpm install
 
-      # 5. Build production bundle
-      - name: Build production
+      # Build frontend
+      - name: Build
+        working-directory: app-7vshm2afcow1
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_APP_ID: app-7vshm2afcow1
         run: pnpm build
 
-      # 6. Configure AWS credentials
-      - name: Configure AWS credentials
+      # Configure AWS
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      # 7. Deploy build output to S3
+      # Deploy build folder
       - name: Sync build to S3
+        working-directory: app-7vshm2afcow1
         run: |
-          aws s3 sync ./dist s3://${{ secrets.S3_BUCKET }} --delete --cache-control "no-cache"
+          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET }} --delete --cache-control "no-cache"
 
-      # 8. Purge CloudFront cache
-      - name: Create CloudFront invalidation
+      # Invalidate CloudFront
+      - name: CloudFront cache invalidation
         run: |
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
