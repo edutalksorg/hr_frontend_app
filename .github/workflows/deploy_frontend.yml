@@ -53,11 +53,11 @@ jobs:
       - name: Sync build to S3
         working-directory: app-7vshm2afcow1
         run: |
-          aws s3 sync dist/ s3://${{ secrets.S3_BUCKET }} --delete --cache-control "no-cache"
+          aws s3 sync dist/ s3://hrattendancewebapp --delete --cache-control "no-cache"
 
       # Invalidate CloudFront
       - name: CloudFront cache invalidation
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id E20D2QLV0MB9XL \
             --paths "/*"
