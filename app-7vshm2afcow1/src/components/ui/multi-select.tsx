@@ -109,8 +109,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                         <svg
                           className="fill-current"
                           role="button"
-                          width="14"
-                          height="14"
+                          width={14}
+                          height={14}
                           viewBox="0 0 14 14"
                           xmlns="http://www.w3.org/2000/svg"
                         >
@@ -141,8 +141,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
               >
                 <svg
                   className={`stroke-current ${isOpen ? "rotate-180" : ""}`}
-                  width="20"
-                  height="20"
+                  width={20}
+                  height={20}
                   viewBox="0 0 20 20"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"

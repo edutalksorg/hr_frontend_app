@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User } from 'lucide-react';
 
 const RegisterPage: React.FC = () => {
   const { register } = useAuth();
@@ -29,12 +29,13 @@ const RegisterPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center gradient-header p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md glass-card shadow-elegant">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-              <UserPlus className="w-8 h-8 text-primary-foreground" />
+            <div className="flex items-center text-4xl font-bold tracking-tight">
+              <span className="text-red-600">Edu</span>
+              <span className="text-black">Talks</span>
             </div>
           </div>
           <CardTitle className="text-3xl font-bold">Create Account</CardTitle>
@@ -94,10 +95,10 @@ const RegisterPage: React.FC = () => {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employee">Employee</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="marketing">Marketing Executive</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                  <SelectItem value="HR">HR</SelectItem>
+                  <SelectItem value="MARKETING_EXECUTIVE">Marketing Executive</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

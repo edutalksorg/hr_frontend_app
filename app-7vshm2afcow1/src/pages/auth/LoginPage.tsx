@@ -5,12 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogIn, Mail, Lock } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,26 +26,16 @@ const LoginPage: React.FC = () => {
     }
   };
 
-  const quickLogin = (role: string) => {
-    const credentials = {
-      admin: { email: 'admin@company.com', password: 'password123' },
-      hr: { email: 'hr@company.com', password: 'password123' },
-      employee: { email: 'employee@company.com', password: 'password123' },
-      marketing: { email: 'marketing@company.com', password: 'password123' }
-    };
 
-    const cred = credentials[role as keyof typeof credentials];
-    setEmail(cred.email);
-    setPassword(cred.password);
-  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center gradient-header p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md glass-card shadow-elegant">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-              <LogIn className="w-8 h-8 text-primary-foreground" />
+            <div className="flex items-center text-4xl font-bold tracking-tight">
+              <span className="text-red-600">Edu</span>
+              <span className="text-black">Talks</span>
             </div>
           </div>
           <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
@@ -73,37 +64,38 @@ const LoginPage: React.FC = () => {
                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 pr-10"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground focus:outline-none"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                Forgot password?
+              </Link>
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
 
-          <div className="mt-6">
-            <p className="text-sm text-center text-muted-foreground mb-3">Quick Login (Demo)</p>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={() => quickLogin('admin')}>
-                Admin
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => quickLogin('hr')}>
-                HR
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => quickLogin('employee')}>
-                Employee
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => quickLogin('marketing')}>
-                Marketing
-              </Button>
-            </div>
-          </div>
+
 
           <div className="mt-6 text-center text-sm">
             <span className="text-muted-foreground">Don't have an account? </span>
@@ -113,7 +105,7 @@ const LoginPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 };
 

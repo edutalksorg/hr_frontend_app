@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,7 @@ import { BackButton } from '@/components/common/BackButton';
 const LeavePage: React.FC = () => {
   const { user } = useAuth();
   const [leaves, setLeaves] = useState<Leave[]>([]);
-  const [balance, setBalance] = useState<LeaveBalance | null>(null);
+  // const [balance, setBalance] = useState<LeaveBalance | null>(null); // Removed dummy balance
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -34,27 +35,35 @@ const LeavePage: React.FC = () => {
     try {
       const promises = [
         apiService.getLeaves(),
-        apiService.getLeaveBalance()
+        // apiService.getLeaveBalance()
       ];
 
       if (user?.role === 'admin' || user?.role === 'hr') {
         promises.push(apiService.getPendingLeaves());
+        promises.push(apiService.getApprovedLeaves());
       }
 
       const results = await Promise.all(promises);
       const myLeaves = results[0] as Leave[];
-      const balanceData = results[1] as LeaveBalance;
-      const pendingLeaves = (results[2] || []) as Leave[];
+      // const balanceData = results[1] as LeaveBalance;
 
-      // Combine my leaves and pending leaves (deduplicated by ID)
-      const allLeaves = [...pendingLeaves, ...myLeaves];
+      let pendingLeaves: Leave[] = [];
+      let approvedLeaves: Leave[] = [];
+
+      if (user?.role === 'admin' || user?.role === 'hr') {
+        pendingLeaves = (results[1] || []) as Leave[];
+        approvedLeaves = (results[2] || []) as Leave[];
+      }
+
+      // Combine my leaves, pending leaves and approved leaves (deduplicated by ID)
+      const allLeaves = [...pendingLeaves, ...approvedLeaves, ...myLeaves];
       const uniqueLeaves = Array.from(new Map(allLeaves.map(item => [item.id, item])).values());
 
       // Sort by date descending
       uniqueLeaves.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 
       setLeaves(uniqueLeaves);
-      setBalance(balanceData);
+      // setBalance(balanceData);
     } catch (error) {
       console.error('Failed to fetch leave data:', error);
     } finally {
@@ -175,52 +184,7 @@ const LeavePage: React.FC = () => {
         </Dialog>
       )}
 
-      {/* Leave Balance */}
-      {
-        balance && (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            <Card className="glass-card shadow-elegant">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Sick Leave</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{balance?.sick}</div>
-                <p className="text-xs text-muted-foreground">days remaining</p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-card shadow-elegant">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Casual Leave</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{balance?.casual}</div>
-                <p className="text-xs text-muted-foreground">days remaining</p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-card shadow-elegant">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Vacation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{balance?.vacation}</div>
-                <p className="text-xs text-muted-foreground">days remaining</p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-card shadow-elegant">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Unpaid Leave</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{balance?.unpaid}</div>
-                <p className="text-xs text-muted-foreground">days taken</p>
-              </CardContent>
-            </Card>
-          </div>
-        )
-      }
+      {/* Leave Balance Section Removed as per request (Dummy Data) */}
 
       {/* Leave History */}
       <Card className="glass-card shadow-elegant">
@@ -235,11 +199,24 @@ const LeavePage: React.FC = () => {
               leaves.map((leave) => (
                 <div key={leave.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Calendar className="h-6 w-6 text-primary" />
-                    </div>
+                    {leave.userName ? (
+                      <Avatar>
+                        <AvatarImage src={leave.userProfilePhoto} />
+                        <AvatarFallback>{leave.userName.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Calendar className="h-6 w-6 text-primary" />
+                      </div>
+                    )}
                     <div>
-                      <p className="font-medium capitalize">{leave.type} Leave</p>
+                      {leave.userName && (
+                        <p className="font-medium">
+                          {leave.userName}
+                          {leave.userEmployeeId && <span className="text-muted-foreground text-xs ml-2">({leave.userEmployeeId})</span>}
+                        </p>
+                      )}
+                      <p className={`text-sm ${leave.userName ? 'text-muted-foreground' : 'font-medium'} capitalize`}>{leave.type} Leave</p>
                       <p className="text-sm text-muted-foreground">
                         {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
                       </p>
@@ -247,13 +224,13 @@ const LeavePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${leave.status === 'approved' ? 'bg-green-100 text-green-700' :
-                      leave.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${leave.status.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' :
+                      leave.status.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' :
                         'bg-yellow-100 text-yellow-700'
                       }`}>
                       {leave.status}
                     </span>
-                    {(user?.role === 'admin' || user?.role === 'hr') && leave.status === 'pending' && (
+                    {((user?.role === 'admin') || (user?.role === 'hr' && leave.userRole?.toUpperCase() !== 'HR')) && leave.status.toLowerCase() === 'pending' && (
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => handleApprove(leave.id)} className="gap-1">
                           <Check className="h-3 w-3" />

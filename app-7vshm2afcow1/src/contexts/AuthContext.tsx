@@ -22,10 +22,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const initAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const currentUser = await apiService.getCurrentUser();
         setUser(currentUser);
       } catch (error) {
+        console.warn("Auth check failed, clearing session.");
+        apiService.logout();
         setUser(null);
       } finally {
         setLoading(false);
@@ -38,7 +46,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       const response = await apiService.login(email, password);
-      setUser(response.user);
+      setUser(response.user ?? null);
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error: any) {

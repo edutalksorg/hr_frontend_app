@@ -5,7 +5,7 @@ import svgr from "vite-plugin-svgr";
 import path from "path";
 
 export default defineConfig({
-  base: "./",  // 🔥 The required fix
+  base: "./",  //  The required fix
 
   build: {
     assetsDir: "assets",

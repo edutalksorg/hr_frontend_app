@@ -4,15 +4,142 @@ import { apiService } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, Shield, Ban, Clock } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Users, Shield, Ban, Clock, Briefcase, UserCog, Megaphone } from 'lucide-react';
 import type { User, Attendance } from '@/types';
 import { toast } from 'sonner';
+
+interface UserListProps {
+  title: string;
+  users: User[];
+  icon: React.ElementType;
+  attendanceMap: Record<string, Attendance>;
+  onBlock: (id: string) => void;
+  onUnblock: (id: string) => void;
+  onApprove: (id: string, role?: string) => void;
+  showApprove?: boolean;
+  onImageClick: (url: string) => void;
+}
+
+const UserListSection: React.FC<UserListProps> = ({
+  title,
+  users,
+  icon: Icon,
+  attendanceMap,
+  onBlock,
+  onUnblock,
+  onApprove,
+  onImageClick
+}) => {
+  if (users.length === 0) return null;
+
+  return (
+    <Card className="glass-card shadow-elegant mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Icon className="h-5 w-5 text-primary" />
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {users.map((user) => (
+            <div key={user.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+              <div className="flex items-center gap-4">
+                <Avatar
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => user.profilePhoto && onImageClick(user.profilePhoto)}
+                >
+                  <AvatarImage src={user.profilePhoto} />
+                  <AvatarFallback>{user.username?.charAt(0) ?? ''}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium">{user.username}</p>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <div className="flex gap-2 mt-1">
+                    <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary capitalize">
+                      {user.role === 'marketing_executive' ? 'Marketing' : user.role}
+                    </span>
+                    {user.isApproved ? (
+                      <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
+                        Approved
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                        Pending
+                      </span>
+                    )}
+                    {user.isBlocked && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
+                        Blocked
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {/* Attendance Info */}
+                {attendanceMap[user.id] && (
+                  <div className="flex flex-col gap-1 text-xs text-muted-foreground border-l pl-4 ml-4">
+                    <div className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      <span>In: {new Date(attendanceMap[user.id].loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    {attendanceMap[user.id].logoutTime && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        <span>Out: {new Date(attendanceMap[user.id].logoutTime!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {!user.isApproved && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onApprove(user.id, user.role?.toUpperCase())}
+                    className="gap-1"
+                  >
+                    <Shield className="h-3 w-3" />
+                    Approve
+                  </Button>
+                )}
+                {user.isBlocked ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onUnblock(user.id)}
+                    className="gap-1"
+                  >
+                    <Shield className="h-3 w-3" />
+                    Unblock
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onBlock(user.id)}
+                    className="gap-1 text-destructive"
+                  >
+                    <Ban className="h-3 w-3" />
+                    Block
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const AdminPage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, Attendance>>({});
-  const [loading, setLoading] = useState(true); // loading state for users
+  const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -23,7 +150,6 @@ const AdminPage: React.FC = () => {
       const data = await apiService.getAllUsers();
       setUsers(data);
 
-      // Fetch attendance for today
       try {
         const allAttendance = await apiService.getAllAttendance();
         const todayStr = new Date().toDateString();
@@ -35,11 +161,6 @@ const AdminPage: React.FC = () => {
 
         const map: Record<string, Attendance> = {};
         todayAttendance.forEach(a => {
-          // If user has multiple logins, take the latest one or the one with logout?
-          // For now, let's just take the latest one (assuming list is ordered or we iterate)
-          // Actually, let's prefer the one that matches the user.
-          // Since we iterate attendance, we map userId -> attendance.
-          // If multiple, the last one wins.
           map[a.userId] = a;
         });
         setAttendanceMap(map);
@@ -55,21 +176,17 @@ const AdminPage: React.FC = () => {
 
   const handleBlockUser = async (userId: string) => {
     try {
-      // Optimistically remove from list for HR users
       if (currentUser?.role === 'hr') {
         setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
       }
-
       await apiService.blockUser(userId);
       toast.success('User blocked successfully');
-
-      // Refresh for admin users
       if (currentUser?.role === 'admin') {
         fetchUsers();
       }
     } catch (error) {
       toast.error('Failed to block user');
-      fetchUsers(); // Revert on error
+      fetchUsers();
     }
   };
 
@@ -85,21 +202,14 @@ const AdminPage: React.FC = () => {
 
   const handleApproveUser = async (userId: string, role: string = 'EMPLOYEE') => {
     try {
-      // Optimistically remove from list for HR users
-      if (currentUser?.role === 'hr') {
-        setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
-      }
+      // Remove from list immediately for instant feedback and to meet requirement ("disappear")
+      setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
 
       await apiService.approveUser(userId, role);
       toast.success('User approved successfully');
-
-      // Refresh the full list for admin users
-      if (currentUser?.role === 'admin') {
-        fetchUsers();
-      }
     } catch (error) {
       toast.error('Failed to approve user');
-      // Revert optimistic update on error
+      // If error, re-fetch to restore state
       fetchUsers();
     }
   };
@@ -113,6 +223,14 @@ const AdminPage: React.FC = () => {
     );
   }
 
+  // Filter users - Show ONLY pending users for approval workflow
+  const adminUsers = users.filter(u => u.role === 'admin' && !u.isApproved);
+  const hrUsers = users.filter(u => u.role === 'hr' && !u.isApproved);
+  const marketingUsers = users.filter(u => (u.role === 'marketing' || u.role === 'marketing_executive') && !u.isApproved);
+  const employeeUsers = users.filter(u => u.role === 'employee' && !u.isApproved);
+
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <div className="space-y-6">
       <div>
@@ -120,107 +238,64 @@ const AdminPage: React.FC = () => {
         <p className="text-muted-foreground">Manage users and system settings</p>
       </div>
 
-      <Card className="glass-card shadow-elegant">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            All Users
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {users.filter(u => {
-              // HR sees all employees (pending and active) but not admins/other HRs
-              if (currentUser?.role === 'hr') {
-                return u.role === 'employee' || u.role === 'marketing';
-              }
-              // Admin sees all users
-              return true;
-            }).map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                <div className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarImage src={user.profilePhoto} />
-                    <AvatarFallback>{user.username?.charAt(0) ?? ''}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{user.username}</p>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <div className="flex gap-2 mt-1">
-                      <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary capitalize">
-                        {user.role}
-                      </span>
-                      {user.isApproved ? (
-                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">
-                          Approved
-                        </span>
-                      ) : (
-                        <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700">
-                          Pending
-                        </span>
-                      )}
-                      {user.isBlocked && (
-                        <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
-                          Blocked
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* Attendance Info */}
-                  {attendanceMap[user.id] && (
-                    <div className="flex flex-col gap-1 text-xs text-muted-foreground border-l pl-4 ml-4">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>In: {new Date(attendanceMap[user.id].loginTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      {attendanceMap[user.id].logoutTime && (
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          <span>Out: {new Date(attendanceMap[user.id].logoutTime!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {!user.isApproved && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleApproveUser(user.id)}
-                      className="gap-1"
-                    >
-                      <Shield className="h-3 w-3" />
-                      Approve
-                    </Button>
-                  )}
-                  {user.isBlocked ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleUnblockUser(user.id)}
-                      className="gap-1"
-                    >
-                      <Shield className="h-3 w-3" />
-                      Unblock
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleBlockUser(user.id)}
-                      className="gap-1 text-destructive"
-                    >
-                      <Ban className="h-3 w-3" />
-                      Block
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {isAdmin && (
+        <>
+          <UserListSection
+            title="Administrators"
+            users={adminUsers}
+            icon={Shield}
+            attendanceMap={attendanceMap}
+            onBlock={handleBlockUser}
+            onUnblock={handleUnblockUser}
+            onApprove={handleApproveUser}
+            onImageClick={setSelectedImage}
+          />
+
+          <UserListSection
+            title="HR Manager"
+            users={hrUsers}
+            icon={UserCog}
+            attendanceMap={attendanceMap}
+            onBlock={handleBlockUser}
+            onUnblock={handleUnblockUser}
+            onApprove={handleApproveUser}
+            onImageClick={setSelectedImage}
+          />
+        </>
+      )}
+
+      <UserListSection
+        title="Marketing Executives"
+        users={marketingUsers}
+        icon={Megaphone}
+        attendanceMap={attendanceMap}
+        onBlock={handleBlockUser}
+        onUnblock={handleUnblockUser}
+        onApprove={handleApproveUser}
+        onImageClick={setSelectedImage}
+      />
+
+      <UserListSection
+        title="Employees"
+        users={employeeUsers}
+        icon={Users}
+        attendanceMap={attendanceMap}
+        onBlock={handleBlockUser}
+        onUnblock={handleUnblockUser}
+        onApprove={handleApproveUser}
+        onImageClick={setSelectedImage}
+      />
+      <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+        <DialogContent className="max-w-3xl p-0 overflow-hidden bg-transparent border-none shadow-none flex justify-center items-center">
+          {selectedImage && (
+            <img
+              src={selectedImage}
+              alt="Profile"
+              className="max-w-full max-h-[80vh] rounded-lg shadow-2xl object-contain bg-black/50"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

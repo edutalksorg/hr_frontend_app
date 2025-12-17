@@ -18,7 +18,8 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Bell
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -32,18 +33,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Track IP every 2 hours for Marketing Executive
+  React.useEffect(() => {
+    if (user?.role?.toLowerCase() === 'marketing_executive' && user?.id) {
+      const track = () => {
+        import('@/services/api').then(({ apiService }) => {
+          apiService.trackSession(user.id).catch(console.error);
+        });
+      };
+
+      // Call immediately on load
+      track();
+
+      // Set interval for 2 hours (2 * 60 * 60 * 1000 ms)
+      const interval = setInterval(track, 2 * 60 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Employees', href: '/admin/employees', icon: Users, roles: ['admin', 'hr'] },
-    { name: 'Attendance', href: '/attendance', icon: Clock, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Leave', href: '/leave', icon: Calendar, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Teams', href: '/teams', icon: UsersRound, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Documents', href: '/documents', icon: FileText, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Notes', href: '/notes', icon: StickyNote, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Holidays', href: '/holidays', icon: Palmtree, roles: ['admin', 'hr', 'employee', 'marketing'] },
-    { name: 'Payroll', href: '/payroll', icon: DollarSign, roles: ['admin', 'hr', 'employee'] },
-    { name: 'Navigation Logs', href: '/navigation', icon: Navigation, roles: ['admin', 'marketing'] },
-    { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'hr', 'employee', 'marketing'] }
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Admin Approve', href: '/admin/employees', icon: Users, roles: ['admin', 'hr'] },
+    { name: 'Attendance Management', href: '/attendance', icon: Clock, roles: ['admin', 'hr'] },
+    { name: 'My Attendance', href: '/attendance', icon: Clock, roles: ['employee', 'marketing', 'marketing_executive'] },
+    { name: 'Leave', href: '/leave', icon: Calendar, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Teams', href: '/teams', icon: UsersRound, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Documents', href: '/documents', icon: FileText, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Notes', href: '/notes', icon: StickyNote, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Holidays', href: '/holidays', icon: Palmtree, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Payroll', href: '/payroll', icon: DollarSign, roles: ['admin', 'hr', 'employee', 'marketing_executive'] },
+    { name: 'Navigation Logs', href: '/navigation', icon: Navigation, roles: ['admin', 'marketing', 'marketing_executive'] },
+    { name: 'Shift Management', href: '/shifts', icon: Clock, roles: ['admin', 'hr'] },
+    { name: 'Notification Management', href: '/notification-settings', icon: Bell, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] }
   ];
 
   const filteredNavigation = navigation.filter(item =>
@@ -55,13 +77,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-background">
       {/* Mobile Header */}
-      <div className="xl:hidden fixed top-0 left-0 right-0 z-50 gradient-header h-16 flex items-center justify-between px-4">
-        <h1 className="text-xl font-bold text-white">HR System</h1>
+      <div className="xl:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-border h-16 flex items-center justify-between px-4">
+        <div className="flex items-center text-2xl font-bold tracking-tight">
+          <span className="text-red-600">Edu</span>
+          <span className="text-black">Talks</span>
+        </div>
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="text-white hover:bg-white/20"
+          className="hover:bg-accent"
         >
           {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </Button>
@@ -77,26 +102,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       >
         <div className="h-full flex flex-col">
           {/* Logo */}
-          <div className="h-16 flex items-center px-6 border-b border-border gradient-header">
-            <h1 className="text-xl font-bold text-white">HR System</h1>
+          <div className="h-16 flex items-center px-6 border-b border-border">
+            <div className="flex items-center text-2xl font-bold tracking-tight">
+              <span className="text-red-600">Edu</span>
+              <span className="text-black">Talks</span>
+            </div>
           </div>
 
           {/* User Profile */}
           <div className="p-4 border-b border-border">
-            <div className="flex items-center gap-3">
-              <Avatar>
+            <Link
+              to="/profile"
+              className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/50 transition-all cursor-pointer group"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <Avatar className="group-hover:ring-2 ring-primary/20 transition-all">
                 <AvatarImage src={user?.profilePhoto} />
                 <AvatarFallback>
                   {(user?.username || user?.email || 'U').charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">
+                <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
                   {user?.username || user?.email?.split('@')[0] || 'User'}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">{user?.role}</p>
               </div>
-            </div>
+            </Link>
           </div>
 
           {/* Navigation */}

@@ -5,7 +5,7 @@ export interface Option {
   withCount?: boolean;
 }
 
-export type UserRole = 'admin' | 'hr' | 'employee' | 'marketing';
+export type UserRole = 'admin' | 'hr' | 'employee' | 'marketing' | 'marketing_executive';
 
 export interface User {
   id: string;
@@ -18,6 +18,8 @@ export interface User {
   isBlocked?: boolean;
   isApproved?: boolean;
   createdAt: string;
+  employeeId?: string;
+  shift?: Shift;
 }
 
 export interface AuthResponse {
@@ -34,11 +36,29 @@ export interface Attendance {
   date?: string;
   status: 'present' | 'absent' | 'late' | 'half-day';
   notes?: string;
+  canCheckOut?: boolean;
+  ipHistory?: { timestamp: string; ip: string }[];
+}
+
+export interface AttendanceRecord {
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+  ipAddress?: string;
+  logoutIpAddress?: string;
+  status: string; // Present, Absent, Holiday, etc.
+  remark?: string;
+  canCheckOut?: boolean;
+  ipHistory?: { timestamp: string; ip: string }[];
 }
 
 export interface Leave {
   id: string;
   userId: string;
+  userName?: string;
+  userEmployeeId?: string;
+  userProfilePhoto?: string;
+  userRole?: string;
   type: 'sick' | 'casual' | 'vacation' | 'unpaid';
   startDate: string;
   endDate: string;
@@ -60,10 +80,12 @@ export interface Team {
 export interface Document {
   id: string;
   userId: string;
-  title: string;
-  category: string;
-  fileUrl: string;
-  uploadedAt: string;
+  type: string;
+  fileName: string;
+  filePath: string;
+  role: string;
+  uploadedBy?: string;
+  createdAt: string;
 }
 
 export interface Note {
@@ -90,7 +112,8 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  isRead: boolean;
+  type: string;
+  read: boolean;
   createdAt: string;
 }
 
@@ -125,10 +148,14 @@ export interface Payroll {
 
 export interface DashboardStats {
   totalEmployees: number;
+  totalHR: number;
+  totalMarketing: number;
   presentToday: number;
   onLeave: number;
   pendingLeaves: number;
   totalTeams: number;
+  technicalTeamCount: number;
+  totalAdmins: number;
 }
 
 export interface AttendanceStats {
@@ -146,3 +173,13 @@ export interface LeaveBalance {
   unpaid: number;
 }
 
+export interface Shift {
+  id: string;
+  name: string;
+  startTime: string; // "09:00:00"
+  endTime: string;   // "18:00:00"
+  lateGraceMinutes?: number;
+  halfDayTime?: string;
+  absentTime?: string;
+  lateCountLimit?: number;
+}

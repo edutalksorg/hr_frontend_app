@@ -15,6 +15,8 @@ const ProfilePage: React.FC = () => {
   const [formData, setFormData] = useState({
     username: user?.username || '',
     bio: user?.bio || '',
+    email: user?.email || '',
+    employeeId: user?.employeeId || '',
     companyEmail: user?.companyEmail || ''
   });
 
@@ -32,9 +34,29 @@ const ProfilePage: React.FC = () => {
     setFormData({
       username: user?.username || '',
       bio: user?.bio || '',
+      email: user?.email || '',
+      employeeId: user?.employeeId || '',
       companyEmail: user?.companyEmail || ''
     });
     setEditing(false);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        try {
+          await updateUser({ ...user, profilePhoto: base64String });
+          toast.success('Profile photo updated');
+        } catch (error) {
+          console.error(error);
+          toast.error('Failed to update photo');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -69,10 +91,23 @@ const ProfilePage: React.FC = () => {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col items-center mb-6">
-            <Avatar className="h-32 w-32 mb-4">
-              <AvatarImage src={user?.profilePhoto} />
-              <AvatarFallback className="text-4xl">{user?.username.charAt(0)}</AvatarFallback>
-            </Avatar>
+            <div className="relative group cursor-pointer" onClick={() => document.getElementById('photo-upload')?.click()}>
+              <Avatar className="h-32 w-32 mb-4 group-hover:opacity-80 transition-opacity">
+                <AvatarImage src={user?.profilePhoto} className="object-cover" />
+                <AvatarFallback className="text-4xl">{user?.username.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="bg-black/50 text-white px-2 py-1 rounded text-xs">Change Photo</span>
+              </div>
+            </div>
+            <input
+              type="file"
+              id="photo-upload"
+              className="hidden"
+              accept="image/*"
+              onChange={handleFileChange}
+              disabled={!editing}
+            />
             <div className="text-center">
               <h2 className="text-2xl font-bold">{user?.username}</h2>
               <p className="text-sm text-muted-foreground capitalize">{user?.role}</p>
@@ -94,20 +129,33 @@ const ProfilePage: React.FC = () => {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
-                  value={user?.email}
-                  disabled
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  disabled={!editing}
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="companyEmail">Company Email</Label>
-              <Input
-                id="companyEmail"
-                value={formData.companyEmail}
-                onChange={(e) => setFormData({ ...formData, companyEmail: e.target.value })}
-                disabled={!editing}
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="employeeId">Employee ID</Label>
+                <Input
+                  id="employeeId"
+                  value={formData.employeeId}
+                  onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                  disabled={!editing}
+                  placeholder="EMP-001"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="companyEmail">Company Email</Label>
+                <Input
+                  id="companyEmail"
+                  value={formData.companyEmail}
+                  onChange={(e) => setFormData({ ...formData, companyEmail: e.target.value })}
+                  disabled={!editing}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -144,17 +192,15 @@ const ProfilePage: React.FC = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Account Status</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                user?.isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${user?.isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                }`}>
                 {user?.isApproved ? 'Approved' : 'Pending Approval'}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Access Status</span>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                user?.isBlocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-              }`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${user?.isBlocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                }`}>
                 {user?.isBlocked ? 'Blocked' : 'Active'}
               </span>
             </div>

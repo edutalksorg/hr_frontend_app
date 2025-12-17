@@ -16,6 +16,7 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [pendingLeaves, setPendingLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [isCheckOutDisabled, setIsCheckOutDisabled] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -34,9 +35,25 @@ const DashboardPage: React.FC = () => {
         setPendingLeaves(pending);
         setHolidays(holidayList);
 
-        const today = new Date().toISOString().split('T')[0];
-        const todayRecord = attendanceData.find(a => a.date === today);
-        setTodayAttendance(todayRecord || null);
+        const sortedAttendance = [...attendanceData]
+          .filter(a => a.loginTime) // Filter out absent/future records filled by backend
+          .sort((a, b) =>
+            new Date(b.loginTime).getTime() - new Date(a.loginTime).getTime()
+          );
+        const latestRecord = sortedAttendance[0];
+
+        if (latestRecord) {
+          const isActive = !latestRecord.logoutTime;
+          const isToday = new Date(latestRecord.loginTime).toDateString() === new Date().toDateString();
+
+          if (isActive || isToday) {
+            setTodayAttendance(latestRecord);
+          } else {
+            setTodayAttendance(null);
+          }
+        } else {
+          setTodayAttendance(null);
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -46,6 +63,48 @@ const DashboardPage: React.FC = () => {
 
     fetchData();
   }, [user]);
+
+  useEffect(() => {
+    if (todayAttendance && !todayAttendance.logoutTime) {
+      const checkTime = () => {
+        // First check backend flag if available
+        if (todayAttendance.canCheckOut === false) {
+          // If backend says explicitly no, we might respect it, 
+          // BUT user requirement says "Do NOT disable Check-Out" for the 10 hour rule.
+          // Assuming backend 'canCheckOut' is the authoritative source for the 10 hour rule:
+          // Attendance.java: returns false if > 10 hours.
+          // So if we rely on backend, it will disable it.
+          // We should override this if it's just the time limit, 
+          // but if 'canCheckOut' means something else (like already checked out), we must respect.
+          // 'canCheckOut' in backend is: if logoutTime != null -> false. if > 10 hours -> false.
+
+          // Since we want to allow checkout after 10 hours, we should IGNORE canCheckOut being false due to time.
+          // But we can't easily distinguish why it's false from frontend without calculation.
+          // So let's rely on frontend calculation and enforce "Always Enabled" for open sessions.
+          setIsCheckOutDisabled(false);
+          return;
+        }
+
+        // Then check client-side time for real-time updates
+        const loginTime = new Date(todayAttendance.loginTime).getTime();
+        const now = Date.now();
+        const tenHoursMs = 10 * 60 * 60 * 1000;
+
+        if (now - loginTime >= tenHoursMs) {
+          // User requirement: Do NOT disable Check-Out
+          setIsCheckOutDisabled(false);
+        } else {
+          setIsCheckOutDisabled(false);
+        }
+      };
+
+      checkTime();
+      const interval = setInterval(checkTime, 60000); // Check every minute
+      return () => clearInterval(interval);
+    } else {
+      setIsCheckOutDisabled(false);
+    }
+  }, [todayAttendance]);
 
   const handleCheckIn = async () => {
     try {
@@ -123,6 +182,25 @@ const DashboardPage: React.FC = () => {
           <CardTitle>Today's Attendance</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-6 p-4 bg-primary/5 rounded-lg border border-primary/10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-medium text-foreground">Assigned Shift</p>
+                <p className="text-xs text-muted-foreground">
+                  {user?.shift
+                    ? `${user.shift.name}: ${user.shift.startTime.slice(0, 5)} - ${user.shift.endTime.slice(0, 5)}`
+                    : "No Shift Assigned (Default: 09:30 - 18:30)"}
+                </p>
+              </div>
+            </div>
+            {user?.shift?.lateGraceMinutes && (
+              <div className="text-right">
+                <p className="text-xs font-medium text-foreground">Grace Period</p>
+                <p className="text-xs text-muted-foreground">{user.shift.lateGraceMinutes} mins</p>
+              </div>
+            )}
+          </div>
           {!todayAttendance ? (
             <div className="flex items-center justify-between">
               <div>
@@ -139,12 +217,22 @@ const DashboardPage: React.FC = () => {
           ) : !todayAttendance.logoutTime ? (
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium">Checked in at {new Date(todayAttendance.loginTime).toLocaleTimeString()}</p>
+                <p className="text-sm font-medium">
+                  Checked in at {new Date(todayAttendance.loginTime).toLocaleTimeString()}
+                  {Date.now() - new Date(todayAttendance.loginTime).getTime() >= 10 * 60 * 60 * 1000 && (
+                    <span className="text-red-500 ml-2 font-bold">(Check-Out Pending)</span>
+                  )}
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
-              <Button onClick={handleCheckOut} variant="destructive" className="gap-2">
+              <Button
+                onClick={handleCheckOut}
+                variant="destructive"
+                className="gap-2"
+                disabled={isCheckOutDisabled}
+              >
                 <XCircle className="h-4 w-4" />
                 Check Out
               </Button>
@@ -166,49 +254,109 @@ const DashboardPage: React.FC = () => {
       {/* Stats Grid */}
       {(user?.role === 'admin' || user?.role === 'hr') && stats && (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="glass-card shadow-elegant">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-              <Users className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalEmployees}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active users</p>
-            </CardContent>
-          </Card>
+          <Link to="/employees">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Company Size</CardTitle>
+                <Users className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalEmployees}</div>
+                <p className="text-xs text-muted-foreground mt-1">Total Employees</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="glass-card shadow-elegant">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Present Today</CardTitle>
-              <Clock className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.presentToday}</div>
-              <p className="text-xs text-muted-foreground mt-1">Checked in</p>
-            </CardContent>
-          </Card>
+          <Link to="/employees?role=admin">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Admins</CardTitle>
+                <Users className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalAdmins}</div>
+                <p className="text-xs text-muted-foreground mt-1">System Administrators</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="glass-card shadow-elegant">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">On Leave</CardTitle>
-              <Calendar className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.onLeave}</div>
-              <p className="text-xs text-muted-foreground mt-1">Approved leaves</p>
-            </CardContent>
-          </Card>
+          <Link to="/employees?role=employee">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Technical Team</CardTitle>
+                <Users className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.technicalTeamCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">Developers & Staff</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="glass-card shadow-elegant">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Teams</CardTitle>
-              <UsersRound className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalTeams}</div>
-              <p className="text-xs text-muted-foreground mt-1">Active teams</p>
-            </CardContent>
-          </Card>
+          <Link to="/employees?role=hr">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">HR Managers</CardTitle>
+                <Users className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalHR}</div>
+                <p className="text-xs text-muted-foreground mt-1">HR Staff</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to="/employees?role=marketing">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Marketing Execs</CardTitle>
+                <Users className="h-4 w-4 text-orange-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalMarketing}</div>
+                <p className="text-xs text-muted-foreground mt-1">Marketing Team</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to="/attendance/present">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Present Today</CardTitle>
+                <Clock className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.presentToday}</div>
+                <p className="text-xs text-muted-foreground mt-1">Checked in</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to="/leave">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">On Leave</CardTitle>
+                <Calendar className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.onLeave}</div>
+                <p className="text-xs text-muted-foreground mt-1">Approved leaves</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to="/teams">
+            <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Teams</CardTitle>
+                <UsersRound className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stats.totalTeams}</div>
+                <p className="text-xs text-muted-foreground mt-1">Active teams</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       )}
 

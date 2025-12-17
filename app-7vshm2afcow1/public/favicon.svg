@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <style>
+      .text {
+        font-family: Impact, 'Arial Narrow', sans-serif;
+        font-weight: 900;
+        font-size: 32px;
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+    </style>
+  </defs>
+  <!-- 
+       To fit "EduTalks" (~8 chars) into a square while keeping full height:
+       We keep Y at full scale. We compress X significantly.
+       "EduTalks" usually takes ~100-120px width at 32px font size.
+       We need to fit it in 32px width. Scale factor ~0.3.
+  -->
+  <g transform="translate(16, 16)">
+    <text class="text" font-size="16">
+      <tspan x="0" y="-7" fill="#DC2626">Edu</tspan>
+      <tspan x="0" y="9" fill="#000000">Talks</tspan>
+    </text>
+  </g>
+</svg>
