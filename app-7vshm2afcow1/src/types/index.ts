@@ -34,7 +34,7 @@ export interface Attendance {
   loginTime: string;
   logoutTime?: string;
   date?: string;
-  status: 'present' | 'absent' | 'late' | 'half-day';
+  status: 'present' | 'absent' | 'late' | 'half-day' | 'half day' | 'holiday';
   notes?: string;
   canCheckOut?: boolean;
   ipHistory?: { timestamp: string; ip: string }[];
