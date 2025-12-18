@@ -212,7 +212,7 @@ const routes: RouteConfig[] = [
     name: 'Notification Settings',
     path: '/notification-settings',
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute allowedRoles={['admin', 'hr']}>
         <NotificationManagementPage />
       </ProtectedRoute>
     )

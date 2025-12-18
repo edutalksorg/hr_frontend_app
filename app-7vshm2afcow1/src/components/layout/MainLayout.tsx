@@ -64,7 +64,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { name: 'Payroll', href: '/payroll', icon: DollarSign, roles: ['admin', 'hr', 'employee', 'marketing_executive'] },
     { name: 'Navigation Logs', href: '/navigation', icon: Navigation, roles: ['admin', 'marketing', 'marketing_executive'] },
     { name: 'Shift Management', href: '/shifts', icon: Clock, roles: ['admin', 'hr'] },
-    { name: 'Notification Management', href: '/notification-settings', icon: Bell, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Notification Management', href: '/notification-settings', icon: Bell, roles: ['admin', 'hr'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] }
   ];
 

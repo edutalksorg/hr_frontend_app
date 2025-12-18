@@ -22,7 +22,7 @@ import {
 import { mockPayroll } from './mockData';
 
 // Prefer Vite env var, fall back to local dev server on port 5000 (matches .env.local)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
 
 class ApiService {
   private client: AxiosInstance;

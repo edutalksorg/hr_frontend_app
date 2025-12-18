@@ -41,7 +41,7 @@ const EmployeeHistoryPage: React.FC = () => {
                 setAttendance(attendanceData);
                 setStats(statsData);
             } catch (error) {
-                console.error('Failed to fetch employee history:', error);
+                console.error('Failed to fetch  the employee history:', error);
             } finally {
                 setLoading(false);
             }
