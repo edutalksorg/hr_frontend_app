@@ -23,7 +23,7 @@ import {
   Palmtree
 } from 'lucide-react';
 import type { User, Attendance, Leave, Holiday, AttendanceStats } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, calculateDuration } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // Helper to normalize dates to YYYY-MM-DD for easy comparison
@@ -337,8 +337,8 @@ const AttendancePage: React.FC = () => {
 
                     <Separator />
 
-                    {/* Check In / Out */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Check In / Out / Duration (UPDATED) */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100">
                         <div className="flex items-center gap-2 mb-2 text-emerald-700">
                           <LogIn className="h-4 w-4" />
@@ -364,6 +364,21 @@ const AttendancePage: React.FC = () => {
                         <div className="flex items-center gap-1 mt-1 text-xs text-orange-600/70">
                           <MapPin className="h-3 w-3" />
                           <span className="truncate max-w-[120px]">{selectedDayData.logoutIpAddress || 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-100">
+                        <div className="flex items-center gap-2 mb-2 text-blue-700">
+                          <Clock className="h-4 w-4" />
+                          <span className="font-medium text-sm">Working Hours</span>
+                        </div>
+                        <p className="text-2xl font-bold text-blue-900">
+                          {(selectedDayData.checkIn && selectedDayData.checkOut)
+                            ? calculateDuration(selectedDayData.checkIn, selectedDayData.checkOut)
+                            : '--'}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1 text-xs text-blue-600/70">
+                          <span className="font-medium">Total Duration</span>
                         </div>
                       </div>
                     </div>

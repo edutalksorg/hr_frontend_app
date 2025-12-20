@@ -8,6 +8,7 @@ import { Clock, CheckCircle, XCircle, User as UserIcon, CalendarDays, MapPin, Ma
 import { BackButton } from '@/components/common/BackButton';
 import type { Attendance, AttendanceStats, User, AttendanceRecord } from '@/types';
 import { format, isSunday } from 'date-fns';
+import { calculateDuration } from '@/lib/utils';
 
 const EmployeeHistoryPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -138,30 +139,37 @@ const EmployeeHistoryPage: React.FC = () => {
             // But api.getAttendance returns Attendance[] with ID.
             // Let's find the ID from 'attendance' state matching the date.
             const dateStr = format(selectedDate, 'yyyy-MM-dd');
-            const att = attendance.find(a => a.date === dateStr || a.loginTime.startsWith(dateStr));
+            const att = attendance.find(a => a.date === dateStr || (a.loginTime && a.loginTime.startsWith(dateStr)));
 
             // If no record exists, we can't update (create not supported yet). 
             // BUT wait, user might want to Mark Present on an Absent day (create).
             // Current backend update only updates EXISTING. 
             // For now let's assume valid ID exists or fallback to showing error.
 
-            if (!att) {
-                // Determine if we should create? Currently backend requires ID.
-                // We'll show robust error for now.
-                // toast.error('Cannot edit absent day (Create not supported yet)');
-                // Actually, if it's absent, we can't edit it with 'updateAttendance'. 
-                // We would need 'createAttendance'.
-                // Let's restrict to editing existing records for now as per "Correction" requirement.
-                alert("Can only edit days with check-in data.");
-                return;
-            }
+            // If no record, or virtual ID, we create new
+            if (!att || att.id.length > 36) {
+                // Creation flow
+                if (!editForm.checkIn) {
+                    alert("Check-in time is required to create a new record.");
+                    return;
+                }
 
-            await apiService.updateAttendance(att.id, {
-                status: editForm.status,
-                checkIn: editForm.checkIn ? new Date(editForm.checkIn).toISOString() : undefined,
-                checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : undefined,
-                remark: editForm.remark
-            });
+                await apiService.createAttendance({
+                    userId: id!,
+                    status: editForm.status,
+                    checkIn: new Date(editForm.checkIn).toISOString(),
+                    checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : undefined,
+                    remark: editForm.remark
+                });
+            } else {
+                // Update flow
+                await apiService.updateAttendance(att.id, {
+                    status: editForm.status,
+                    checkIn: editForm.checkIn ? new Date(editForm.checkIn).toISOString() : undefined,
+                    checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : undefined,
+                    remark: editForm.remark
+                });
+            }
 
             setIsEditOpen(false);
             // Refresh
@@ -178,6 +186,34 @@ const EmployeeHistoryPage: React.FC = () => {
         } catch (error) {
             console.error(error);
             alert("Failed to update attendance");
+        }
+    };
+
+    const handleBlockUser = async () => {
+        if (!user || !confirm(`Are you sure you want to block ${user.username}?`)) return;
+        try {
+            await apiService.blockUser(user.id);
+            alert('User blocked successfully');
+            // Refresh user
+            const allUsers = await apiService.getAllUsers();
+            const foundUser = allUsers.find(u => u.id === id);
+            setUser(foundUser || null);
+        } catch (error) {
+            alert('Failed to block user');
+        }
+    };
+
+    const handleUnblockUser = async () => {
+        if (!user || !confirm(`Are you sure you want to unblock ${user.username}?`)) return;
+        try {
+            await apiService.unblockUser(user.id);
+            alert('User unblocked successfully');
+            // Refresh user
+            const allUsers = await apiService.getAllUsers();
+            const foundUser = allUsers.find(u => u.id === id);
+            setUser(foundUser || null);
+        } catch (error) {
+            alert('Failed to unblock user');
         }
     };
 
@@ -349,10 +385,22 @@ const EmployeeHistoryPage: React.FC = () => {
 
                                 <div className="space-y-4 text-center sm:text-left flex-1">
                                     <div>
-                                        <h2 className="text-3xl font-bold text-foreground tracking-tight">{user.username}</h2>
+                                        <div className="flex items-center justify-between">
+                                            <h2 className="text-3xl font-bold text-foreground tracking-tight">{user.username}</h2>
+                                            {user.isBlocked ? (
+                                                <button onClick={handleUnblockUser} className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+                                                    Unblock User
+                                                </button>
+                                            ) : (
+                                                <button onClick={handleBlockUser} className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium">
+                                                    Block User
+                                                </button>
+                                            )}
+                                        </div>
                                         <div className="flex items-center justify-center sm:justify-start gap-2 text-muted-foreground mt-1">
                                             <Briefcase className="h-4 w-4 text-primary" />
                                             <span className="font-medium capitalize">{user.role?.replace('_', ' ')}</span>
+                                            {user.isBlocked && <span className="text-red-500 font-bold ml-2">(BLOCKED)</span>}
                                         </div>
                                     </div>
 
@@ -447,7 +495,7 @@ const EmployeeHistoryPage: React.FC = () => {
                                     </div>
 
                                     {/* Timings */}
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="space-y-3 p-4 bg-background/50 rounded-xl border hover:shadow-md transition-all group">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-sm font-semibold text-green-600 dark:text-green-400">Check In Time</p>
@@ -478,6 +526,21 @@ const EmployeeHistoryPage: React.FC = () => {
                                                     <span className="truncate" title={selectedRecord.logoutIpAddress}>IP: {selectedRecord.logoutIpAddress}</span>
                                                 </div>
                                             )}
+                                        </div>
+
+                                        <div className="space-y-3 p-4 bg-background/50 rounded-xl border hover:shadow-md transition-all group">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Total Duration</p>
+                                                <Clock className="h-4 w-4 text-blue-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                            </div>
+                                            <p className="text-2xl font-bold tracking-tight">
+                                                {(selectedRecord?.checkIn && selectedRecord?.checkOut)
+                                                    ? calculateDuration(selectedRecord.checkIn, selectedRecord.checkOut)
+                                                    : '--'}
+                                            </p>
+                                            <div className="flex items-center gap-1.5 pt-2 border-t border-border/50 text-xs text-muted-foreground">
+                                                <span className="truncate">Working Hours</span>
+                                            </div>
                                         </div>
                                     </div>
 

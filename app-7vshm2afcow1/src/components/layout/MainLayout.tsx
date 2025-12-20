@@ -19,7 +19,9 @@ import {
   LogOut,
   Menu,
   X,
-  Bell
+  Bell,
+  TrendingUp,
+  LifeBuoy
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -59,12 +61,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     { name: 'Leave', href: '/leave', icon: Calendar, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
     { name: 'Teams', href: '/teams', icon: UsersRound, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
     { name: 'Documents', href: '/documents', icon: FileText, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
+    { name: 'Goals & Reviews', href: '/performance', icon: TrendingUp, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
     { name: 'Notes', href: '/notes', icon: StickyNote, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
     { name: 'Holidays', href: '/holidays', icon: Palmtree, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
     { name: 'Payroll', href: '/payroll', icon: DollarSign, roles: ['admin', 'hr', 'employee', 'marketing_executive'] },
     { name: 'Navigation Logs', href: '/navigation', icon: Navigation, roles: ['admin', 'marketing', 'marketing_executive'] },
     { name: 'Shift Management', href: '/shifts', icon: Clock, roles: ['admin', 'hr'] },
     { name: 'Notification Management', href: '/notification-settings', icon: Bell, roles: ['admin', 'hr'] },
+    { name: 'Helpdesk', href: '/helpdesk', icon: LifeBuoy, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'hr', 'employee', 'marketing', 'marketing_executive'] }
   ];
 

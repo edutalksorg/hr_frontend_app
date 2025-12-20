@@ -34,9 +34,10 @@ export interface Attendance {
   loginTime: string;
   logoutTime?: string;
   date?: string;
-  status: 'present' | 'absent' | 'late' | 'half-day' | 'half day' | 'holiday';
+  status: string;
   notes?: string;
   canCheckOut?: boolean;
+  metadata?: string;
   ipHistory?: { timestamp: string; ip: string }[];
 }
 
@@ -182,4 +183,54 @@ export interface Shift {
   halfDayTime?: string;
   absentTime?: string;
   lateCountLimit?: number;
+}
+
+export interface PerformanceGoal {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  type: 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+  startDate: string;
+  endDate: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'MISSED';
+  progressPercentage: number;
+  adminFeedback?: string;
+  createdAt: string;
+}
+
+export interface PerformanceReview {
+  id: string;
+  userId: string;
+  user?: User;
+  reviewerId?: string;
+  reviewer?: User;
+  cycle: string;
+  rating: number; // 1-10
+  feedback: string;
+  improvementAreas: string;
+  reviewDate: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  requester?: User; // Depending on how we fetch
+  requesterId?: string; // If simplified
+  category: 'IT_SUPPORT' | 'HR_QUERY' | 'PAYROLL_ISSUE' | 'GENERAL';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  subject: string;
+  description: string;
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'REJECTED';
+  assignedTo?: User;
+  createdAt: string;
+  updatedAt?: string;
+  attachmentUrl?: string;
+}
+
+export interface TicketComment {
+  id: string;
+  ticketId: string;
+  author: User;
+  content: string;
+  createdAt: string;
 }

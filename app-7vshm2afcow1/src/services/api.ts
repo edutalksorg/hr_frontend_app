@@ -17,7 +17,11 @@ import {
   NavigationLog,
   Payroll,
   DashboardStats,
-  LeaveBalance
+  LeaveBalance,
+  PerformanceGoal,
+  PerformanceReview,
+  SupportTicket,
+  TicketComment
 } from '@/types';
 import { mockPayroll } from './mockData';
 
@@ -84,8 +88,19 @@ class ApiService {
       const message = (error.response.data as any)?.message || 'An error occurred';
       const isLoginRequest = error.config?.url?.includes('/login');
 
-      if (isLoginRequest && (status === 401 || status === 403 || status === 404)) {
+      if (isLoginRequest && (status === 401 || status === 404)) {
         toast.error('Invalid email or password');
+        return;
+      }
+
+      if (isLoginRequest && status === 403) {
+        const specificMessage = (error.response.data as any)?.message;
+        if (specificMessage && specificMessage.includes('blocked')) {
+          toast.error('Contact admin you are blocked');
+          return;
+        }
+        // Fallback for other 403s during login if any
+        toast.error('Access denied');
         return;
       }
 
@@ -281,7 +296,7 @@ class ApiService {
     const response = await this.client.get<any[]>(`/api/v1/attendance/history/60days/${userId}`);
     // Map DTO to Attendance interface
     return response.data.map(dto => ({
-      id: `${dto.date}-${userId}`, // Generate a composite ID
+      id: dto.id || `${dto.date}-${userId}`, // Use real ID if available, else fallback to composite
       userId: userId,
       date: dto.date,
       loginTime: dto.checkIn,
@@ -305,6 +320,11 @@ class ApiService {
 
   async updateAttendance(id: string, data: { status?: string, checkIn?: string, checkOut?: string, remark?: string }): Promise<Attendance> {
     const response = await this.client.put<Attendance>(`/api/v1/attendance/update/${id}`, data);
+    return response.data;
+  }
+
+  async createAttendance(data: { userId: string, status?: string, checkIn?: string, checkOut?: string, remark?: string }): Promise<Attendance> {
+    const response = await this.client.post<Attendance>('/api/v1/attendance/manual', data);
     return response.data;
   }
 
@@ -538,6 +558,24 @@ class ApiService {
     return response.data;
   }
 
+  async sendNotificationBatch(userIds: string[], title: string, message: string, type: string = 'INFO'): Promise<void> {
+    await this.client.post('/api/notifications/send', {
+      userIds,
+      title,
+      message,
+      type
+    });
+  }
+
+  async sendNotificationToTeam(teamId: string, title: string, message: string, type: string = 'INFO'): Promise<void> {
+    await this.client.post('/api/notifications/send', {
+      teamId,
+      title,
+      message,
+      type
+    });
+  }
+
   async markNotificationAsRead(notificationId: string): Promise<void> {
     await this.client.post(`/api/notifications/read/${notificationId}`);
   }
@@ -632,7 +670,7 @@ class ApiService {
     }
   }
 
-  async updateProfile(userId: string, updates: Partial<User>): Promise<User> {
+  async updateProfile(_userId: string, updates: Partial<User>): Promise<User> {
     // 1. Update text fields
     await this.client.put('/api/v1/profile/update', {
       username: updates.username,
@@ -686,6 +724,90 @@ class ApiService {
 
   async updateShift(id: string, shift: Partial<Shift>): Promise<Shift> {
     const response = await this.client.put<Shift>(`/api/v1/shifts/${id}`, shift);
+    return response.data;
+  }
+
+  // Performance API
+
+  // Performance API
+  async getUserGoals(userId: string): Promise<PerformanceGoal[]> {
+    const response = await this.client.get<PerformanceGoal[]>(`/api/v1/performance/goals/${userId}`);
+    return response.data;
+  }
+
+  async createGoal(userId: string, goal: Partial<PerformanceGoal>): Promise<PerformanceGoal> {
+    const response = await this.client.post<PerformanceGoal>(`/api/v1/performance/goals/${userId}`, goal);
+    return response.data;
+  }
+
+  async updateGoal(goalId: string, updates: Partial<PerformanceGoal>): Promise<PerformanceGoal> {
+    const response = await this.client.put<PerformanceGoal>(`/api/v1/performance/goals/${goalId}`, updates);
+    return response.data;
+  }
+
+  async deleteGoal(goalId: string): Promise<void> {
+    await this.client.delete(`/api/v1/performance/goals/${goalId}`);
+  }
+
+  async getUserReviews(userId: string): Promise<PerformanceReview[]> {
+    const response = await this.client.get<PerformanceReview[]>(`/api/v1/performance/reviews/${userId}`);
+    return response.data;
+  }
+
+  async getAllReviews(): Promise<PerformanceReview[]> {
+    const response = await this.client.get<PerformanceReview[]>('/api/v1/performance/reviews/all');
+    return response.data;
+  }
+
+  async addReview(userId: string, review: Partial<PerformanceReview>): Promise<PerformanceReview> {
+    const response = await this.client.post<PerformanceReview>(`/api/v1/performance/reviews/${userId}`, review);
+    return response.data;
+  }
+
+  async deleteReview(reviewId: string): Promise<void> {
+    await this.client.delete(`/api/v1/performance/reviews/${reviewId}`);
+  }
+
+  async getFilteredReviews(teamId?: string, userIds?: string[]): Promise<PerformanceReview[]> {
+    const response = await this.client.post<PerformanceReview[]>('/api/v1/performance/reviews/filter', {
+      teamId,
+      userIds
+    });
+    return response.data;
+  }
+
+  // Helpdesk API
+  async createTicket(ticket: Partial<SupportTicket>): Promise<SupportTicket> {
+    const response = await this.client.post<SupportTicket>('/api/v1/helpdesk/tickets', ticket);
+    return response.data;
+  }
+
+  async getMyTickets(userId: string): Promise<SupportTicket[]> {
+    const response = await this.client.get<SupportTicket[]>(`/api/v1/helpdesk/tickets/my/${userId}`);
+    return response.data;
+  }
+
+  async getAllTickets(): Promise<SupportTicket[]> {
+    const response = await this.client.get<SupportTicket[]>('/api/v1/helpdesk/tickets/all');
+    return response.data;
+  }
+
+  async updateTicketStatus(ticketId: string, status: string, assignedToId?: string): Promise<SupportTicket> {
+    const params = new URLSearchParams();
+    params.append('status', status);
+    if (assignedToId) params.append('assignedToId', assignedToId);
+
+    const response = await this.client.put<SupportTicket>(`/api/v1/helpdesk/tickets/${ticketId}/status?${params.toString()}`);
+    return response.data;
+  }
+
+  async addTicketComment(ticketId: string, authorId: string, content: string): Promise<TicketComment> {
+    const response = await this.client.post<TicketComment>(`/api/v1/helpdesk/tickets/${ticketId}/comments`, { authorId, content });
+    return response.data;
+  }
+
+  async getTicketComments(ticketId: string): Promise<TicketComment[]> {
+    const response = await this.client.get<TicketComment[]>(`/api/v1/helpdesk/tickets/${ticketId}/comments`);
     return response.data;
   }
 }

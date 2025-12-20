@@ -4,6 +4,7 @@ import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
+import BlockedPage from './pages/auth/BlockedPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import AttendancePage from './pages/attendance/AttendancePage';
 import LeavePage from './pages/leave/LeavePage';
@@ -24,6 +25,8 @@ import NotificationsPage from './pages/notifications/NotificationsPage';
 import SendNotificationPage from './pages/admin/SendNotificationPage';
 import ShiftManagementPage from './pages/shifts/ShiftManagementPage';
 import NotificationManagementPage from './pages/notifications/NotificationManagementPage';
+import PerformancePage from './pages/performance/PerformancePage';
+import HelpdeskPage from './pages/helpdesk/HelpdeskPage';
 
 interface RouteConfig {
   name: string;
@@ -52,6 +55,11 @@ const routes: RouteConfig[] = [
     name: 'Reset Password',
     path: '/reset-password',
     element: <ResetPasswordPage />
+  },
+  {
+    name: 'Blocked',
+    path: '/blocked',
+    element: <BlockedPage />
   },
   {
     name: 'Dashboard',
@@ -235,6 +243,24 @@ const routes: RouteConfig[] = [
       </ProtectedRoute>
     ),
     visible: true
+  },
+  {
+    name: 'Performance',
+    path: '/performance',
+    element: (
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'employee', 'marketing', 'marketing_executive']}>
+        <PerformancePage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'Helpdesk',
+    path: '/helpdesk',
+    element: (
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'employee', 'marketing', 'marketing_executive']}>
+        <HelpdeskPage />
+      </ProtectedRoute>
+    )
   }
 ];
 

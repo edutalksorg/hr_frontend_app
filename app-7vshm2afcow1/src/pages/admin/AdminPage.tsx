@@ -176,17 +176,17 @@ const AdminPage: React.FC = () => {
 
   const handleBlockUser = async (userId: string) => {
     try {
-      if (currentUser?.role === 'hr') {
-        setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
-      }
+      // Optimistic update
+      setUsers(prevUsers => prevUsers.map(u =>
+        u.id === userId ? { ...u, isBlocked: true, status: 'BLOCKED' } : u
+      ));
+
       await apiService.blockUser(userId);
       toast.success('User blocked successfully');
-      if (currentUser?.role === 'admin') {
-        fetchUsers();
-      }
+      fetchUsers(); // Refresh to be sure
     } catch (error) {
       toast.error('Failed to block user');
-      fetchUsers();
+      fetchUsers(); // Revert on error
     }
   };
 
@@ -202,14 +202,16 @@ const AdminPage: React.FC = () => {
 
   const handleApproveUser = async (userId: string, role: string = 'EMPLOYEE') => {
     try {
-      // Remove from list immediately for instant feedback and to meet requirement ("disappear")
-      setUsers(prevUsers => prevUsers.filter(u => u.id !== userId));
+      // Optimistic update
+      setUsers(prevUsers => prevUsers.map(u =>
+        u.id === userId ? { ...u, isApproved: true, status: 'ACTIVE' } : u
+      ));
 
       await apiService.approveUser(userId, role);
       toast.success('User approved successfully');
+      fetchUsers(); // Refresh to be sure
     } catch (error) {
       toast.error('Failed to approve user');
-      // If error, re-fetch to restore state
       fetchUsers();
     }
   };
@@ -223,11 +225,11 @@ const AdminPage: React.FC = () => {
     );
   }
 
-  // Filter users - Show ONLY pending users for approval workflow
-  const adminUsers = users.filter(u => u.role === 'admin' && !u.isApproved);
-  const hrUsers = users.filter(u => u.role === 'hr' && !u.isApproved);
-  const marketingUsers = users.filter(u => (u.role === 'marketing' || u.role === 'marketing_executive') && !u.isApproved);
-  const employeeUsers = users.filter(u => u.role === 'employee' && !u.isApproved);
+  // Filter users - Show ALL users for management
+  const adminUsers = users.filter(u => u.role === 'admin');
+  const hrUsers = users.filter(u => u.role === 'hr');
+  const marketingUsers = users.filter(u => u.role === 'marketing' || u.role === 'marketing_executive');
+  const employeeUsers = users.filter(u => u.role === 'employee');
 
   const isAdmin = currentUser?.role === 'admin';
 

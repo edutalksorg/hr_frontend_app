@@ -43,12 +43,16 @@ const DashboardPage: React.FC = () => {
         const latestRecord = sortedAttendance[0];
 
         if (latestRecord) {
-          const isActive = !latestRecord.logoutTime;
+          const isMissedCheckout = latestRecord.status.toLowerCase().includes('checkout not done');
+          const isActive = !latestRecord.logoutTime && !isMissedCheckout;
           const isToday = new Date(latestRecord.loginTime).toDateString() === new Date().toDateString();
 
-          if (isActive || isToday) {
+          if (isActive) {
+            setTodayAttendance(latestRecord);
+          } else if (isToday && !isMissedCheckout) {
             setTodayAttendance(latestRecord);
           } else {
+            // Allow check-in if previous record is 'Checkout Not Done', even if it was today
             setTodayAttendance(null);
           }
         } else {

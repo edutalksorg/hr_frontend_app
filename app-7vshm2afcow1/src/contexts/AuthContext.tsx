@@ -43,12 +43,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     initAuth();
   }, []);
 
+  useEffect(() => {
+    if (user?.isBlocked) {
+      if (window.location.pathname !== '/blocked') {
+        navigate('/blocked');
+      }
+    }
+  }, [user, navigate]);
+
   const login = async (email: string, password: string) => {
     try {
       const response = await apiService.login(email, password);
       setUser(response.user ?? null);
       toast.success('Login successful!');
-      navigate('/dashboard');
+      if (response.user?.isBlocked) {
+        navigate('/blocked');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       // Error is handled by api interceptor
       throw error;
