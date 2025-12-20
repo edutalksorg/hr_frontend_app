@@ -9,16 +9,12 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        shell: bash
-
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Setup Node.js (must be before pnpm)
+      # 2️⃣ Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -26,14 +22,16 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: app-7vshm2afcow1/pnpm-lock.yaml
 
-      # 3️⃣ Install pnpm
-      - name: Install pnpm
-        run: npm install -g pnpm
+      # 3️⃣ Setup pnpm (🔥 THIS FIXES THE ERROR)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
 
-      # 4️⃣ Install dependencies (FIX: allow lockfile sync)
+      # 4️⃣ Install dependencies
       - name: Install dependencies
         working-directory: app-7vshm2afcow1
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       # 5️⃣ Build frontend
       - name: Build frontend
@@ -44,7 +42,7 @@ jobs:
         run: pnpm build
 
       # 6️⃣ Configure AWS credentials
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -59,8 +57,8 @@ jobs:
             --delete \
             --cache-control "no-cache"
 
-      # 8️⃣ Invalidate CloudFront cache
-      - name: Invalidate CloudFront cache
+      # 8️⃣ Invalidate CloudFront
+      - name: Invalidate CloudFront
         run: |
           aws cloudfront create-invalidation \
             --distribution-id E20D2QLV0MB9XL \
