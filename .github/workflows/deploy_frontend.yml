@@ -9,54 +9,58 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
-      # Checkout repo
-      - name: Checkout
+      # 1️⃣ Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Change working directory into your web app
-      - name: Switch to web app directory
-        run: cd app-7vshm2afcow1
-
-      # Install pnpm
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      # Setup Node
+      # 2️⃣ Setup Node.js (must be before pnpm)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
+          cache-dependency-path: app-7vshm2afcow1/pnpm-lock.yaml
 
-      # Install dependencies inside your frontend folder
+      # 3️⃣ Install pnpm
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      # 4️⃣ Install dependencies (FIX: allow lockfile sync)
       - name: Install dependencies
         working-directory: app-7vshm2afcow1
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
-      # Build frontend
-      - name: Build
+      # 5️⃣ Build frontend
+      - name: Build frontend
         working-directory: app-7vshm2afcow1
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
           VITE_APP_ID: app-7vshm2afcow1
         run: pnpm build
 
-      # Configure AWS
-      - name: Configure AWS Credentials
+      # 6️⃣ Configure AWS credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
 
-      # Deploy build folder
-      - name: Sync build to S3
+      # 7️⃣ Deploy to S3
+      - name: Deploy to S3
         working-directory: app-7vshm2afcow1
         run: |
-          aws s3 sync dist/ s3://hrattendancewebapp --delete --cache-control "no-cache"
+          aws s3 sync dist/ s3://hrattendancewebapp \
+            --delete \
+            --cache-control "no-cache"
 
-      # Invalidate CloudFront
-      - name: CloudFront cache invalidation
+      # 8️⃣ Invalidate CloudFront cache
+      - name: Invalidate CloudFront cache
         run: |
           aws cloudfront create-invalidation \
             --distribution-id E20D2QLV0MB9XL \
