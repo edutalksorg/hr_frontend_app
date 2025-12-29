@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StickyNote, Plus, Pin, Trash2 } from 'lucide-react';
+import { Plus, Pin, Trash2 } from 'lucide-react';
 import type { Note } from '@/types';
 import { toast } from 'sonner';
 import {
@@ -21,9 +21,8 @@ import { Textarea } from '@/components/ui/textarea';
 const NotesPage: React.FC = () => {
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newNote, setNewNote] = useState({ title: '', content: '' });
+  const [newNote, setNewNote] = useState({ title: '', body: '' });
 
   useEffect(() => {
     fetchNotes();
@@ -35,13 +34,11 @@ const NotesPage: React.FC = () => {
       setNotes(data);
     } catch (error) {
       console.error('Failed to fetch notes:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleCreateNote = async () => {
-    if (!newNote.title || !newNote.content) {
+    if (!newNote.title || !newNote.body) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -50,12 +47,12 @@ const NotesPage: React.FC = () => {
       await apiService.createNote({
         userId: user?.id || '',
         title: newNote.title,
-        content: newNote.content,
+        body: newNote.body,
         isPinned: false,
       });
       toast.success('Note created successfully');
       setIsDialogOpen(false);
-      setNewNote({ title: '', content: '' });
+      setNewNote({ title: '', body: '' });
       fetchNotes();
     } catch (error) {
       toast.error('Failed to create note');
@@ -104,10 +101,10 @@ const NotesPage: React.FC = () => {
                 <Label htmlFor="content">Content</Label>
                 <Textarea
                   id="content"
-                  value={newNote.content}
-                  onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
+                  value={newNote.body}
+                  onChange={(e) => setNewNote({ ...newNote, body: e.target.value })}
                   placeholder="Write your note here..."
-                  className="min-h-[100px]"
+                  className="min-h-[200px] custom-scrollbar"
                 />
               </div>
             </div>
@@ -121,30 +118,63 @@ const NotesPage: React.FC = () => {
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {notes.map((note) => (
-          <Card key={note.id} className="glass-card shadow-elegant">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{note.title}</CardTitle>
-                {note.isPinned && <Pin className="h-4 w-4 text-primary" />}
+          <Dialog key={note.id}>
+            <DialogTrigger asChild>
+              <div className="cursor-pointer">
+                <Card className="glass-card shadow-elegant hover:shadow-lg transition-shadow h-full pb-0">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base truncate pr-6">{note.title}</CardTitle>
+                      {note.isPinned && <Pin className="h-4 w-4 text-primary shrink-0" />}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{note.body}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(note.updatedAt).toLocaleDateString()}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteNote(note.id);
+                        }}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground line-clamp-3">{note.content}</p>
-              <div className="flex items-center justify-between mt-3">
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <div className="flex items-center justify-between pr-6">
+                  <DialogTitle className="text-2xl">{note.title}</DialogTitle>
+                  {note.isPinned && <Pin className="h-5 w-5 text-primary" />}
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(note.updatedAt).toLocaleDateString()}
+                  Last updated: {new Date(note.updatedAt).toLocaleString()}
                 </p>
+              </DialogHeader>
+              <div className="py-4 whitespace-pre-wrap text-foreground max-h-[60vh] overflow-y-auto custom-scrollbar pr-2 scroll-smooth">
+                {note.body}
+              </div>
+              <DialogFooter>
                 <Button
-                  variant="ghost"
-                  size="sm"
+                  variant="destructive"
+                  className="gap-2"
                   onClick={() => handleDeleteNote(note.id)}
-                  className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
+                  Delete Note
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         ))}
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, TrendingUp, TrendingDown, Calendar, FileText, Download, Upload, User as UserIcon, Loader2 } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Calendar, FileText, Download, Upload, User as UserIcon, Loader2, Trash2 } from 'lucide-react';
 import type { Payroll, Document, User } from '@/types';
 import { toast } from 'sonner';
 
@@ -27,7 +27,7 @@ const PayrollPage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
 
-  const isAdminOrHr = user?.role === 'admin' || user?.role === 'hr';
+  const isAdminOrHr = user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager';
 
   // Fetch Personal Data
   useEffect(() => {
@@ -121,6 +121,22 @@ const PayrollPage: React.FC = () => {
     }
   };
 
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    try {
+      await apiService.deleteDocument(documentId);
+      toast.success('Document deleted successfully');
+      // Refresh list
+      if (selectedUserId) {
+        const docs = await apiService.getDocuments(selectedUserId);
+        setSelectedUserDocs(docs);
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      toast.error('Failed to delete document');
+    }
+  };
+
   const latestPayroll = payroll[0];
 
   if (loading) {
@@ -210,7 +226,7 @@ const PayrollPage: React.FC = () => {
                   </p>
                 </div>
               </CardHeader>
-              <CardContent className="pt-0 flex justify-end">
+              <CardContent className="pt-0 flex justify-end gap-1">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -220,6 +236,16 @@ const PayrollPage: React.FC = () => {
                   <Download className="h-3 w-3 mr-1 group-hover:scale-110 transition-transform" />
                   Download
                 </Button>
+                {isAdminOrHr && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDeleteDocument(doc.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -388,9 +414,19 @@ const PayrollPage: React.FC = () => {
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => handleDownload(doc)}>
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => handleDownload(doc)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))
                 )}

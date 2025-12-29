@@ -19,7 +19,7 @@ const App: React.FC = () => {
                   element={route.element}
                 />
               ))}
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<Navigate to="/welcome" replace />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </main>

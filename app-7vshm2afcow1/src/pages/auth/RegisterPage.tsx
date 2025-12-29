@@ -97,6 +97,7 @@ const RegisterPage: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="EMPLOYEE">Employee</SelectItem>
                   <SelectItem value="HR">HR</SelectItem>
+                  <SelectItem value="MANAGER">Manager</SelectItem>
                   <SelectItem value="MARKETING_EXECUTIVE">Marketing Executive</SelectItem>
                   <SelectItem value="ADMIN">Admin</SelectItem>
                 </SelectContent>

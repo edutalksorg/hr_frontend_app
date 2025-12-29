@@ -103,7 +103,7 @@ const TeamsPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Teams</h1>
           <p className="text-muted-foreground">Collaborate with your team members</p>
         </div>
-        {(user?.role === 'admin' || user?.role === 'hr') && (
+        {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
           <Button className="gap-2" onClick={() => setCreateDialogOpen(true)}>
             <Plus className="h-4 w-4" />
             Create Team
@@ -115,7 +115,7 @@ const TeamsPage: React.FC = () => {
         {teams
           .filter(team => {
             // Admin and HR see all teams
-            if (user?.role === 'admin' || user?.role === 'hr') {
+            if (user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') {
               return true;
             }
             // Employees see only teams they belong to

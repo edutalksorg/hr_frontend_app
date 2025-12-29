@@ -14,7 +14,6 @@ const HolidaysPage: React.FC = () => {
   const { user } = useAuth();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchHolidays = async () => {
@@ -23,8 +22,6 @@ const HolidaysPage: React.FC = () => {
         setHolidays(data);
       } catch (error) {
         console.error('Failed to fetch holidays:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -65,7 +62,7 @@ const HolidaysPage: React.FC = () => {
           <h1 className="text-3xl font-bold">Holidays</h1>
           <p className="text-muted-foreground">Company holidays and observances</p>
         </div>
-        {(user?.role === 'admin' || user?.role === 'hr') && (
+        {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
@@ -158,7 +155,7 @@ const HolidaysPage: React.FC = () => {
                       <p className="text-xs text-muted-foreground mt-1">{holiday.description}</p>
                     )}
                   </div>
-                  {(user?.role === 'admin' || user?.role === 'hr') && (
+                  {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
                     <Button
                       variant="ghost"
                       size="icon"

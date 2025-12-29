@@ -50,12 +50,14 @@ const EmployeesListPage: React.FC = () => {
 
     const getPageTitle = () => {
         if (roleFilter === 'hr') return 'HR Managers';
+        if (roleFilter === 'manager') return 'Company Managers';
         if (roleFilter === 'marketing') return 'Marketing Executives';
         return 'Total Employees';
     };
 
     const getPageDescription = () => {
         if (roleFilter === 'hr') return 'View all HR managers and their work history';
+        if (roleFilter === 'manager') return 'View all Company Managers and their work history';
         if (roleFilter === 'marketing') return 'View all Marketing Executives and their work history';
         return 'View all employees and their work history';
     };

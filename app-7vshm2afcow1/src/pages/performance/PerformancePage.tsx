@@ -27,7 +27,7 @@ const PerformancePage: React.FC = () => {
     const [viewMode, setViewMode] = useState<'MY' | 'ALL' | 'FILTER'>('MY'); // MY, ALL, FILTER
 
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const isHrOrAdmin = user?.role === 'admin' || user?.role === 'hr';
+    const isHrOrAdmin = user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager';
 
     // Derived target for single-user operations (Create Goal/Review)
     const getSingleTargetUser = () => {

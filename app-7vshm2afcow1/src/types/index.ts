@@ -5,7 +5,7 @@ export interface Option {
   withCount?: boolean;
 }
 
-export type UserRole = 'admin' | 'hr' | 'employee' | 'marketing' | 'marketing_executive';
+export type UserRole = 'admin' | 'hr' | 'manager' | 'employee' | 'marketing' | 'marketing_executive';
 
 export interface User {
   id: string;
@@ -94,7 +94,7 @@ export interface Note {
   userId: string;
   teamId?: string;
   title: string;
-  content: string;
+  body: string;
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;

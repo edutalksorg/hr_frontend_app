@@ -113,7 +113,7 @@ const TeamDetailPage: React.FC = () => {
         }
     };
 
-    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
 
     // Get users not in team
     const availableUsers = allUsers.filter(u =>

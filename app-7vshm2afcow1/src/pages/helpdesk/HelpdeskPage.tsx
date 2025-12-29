@@ -3,19 +3,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { SupportTicket } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, LifeBuoy, Filter } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Plus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 
 const HelpdeskPage: React.FC = () => {
     const { user } = useAuth();
     const [tickets, setTickets] = useState<SupportTicket[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('ALL'); // ALL, OPEN, CLOSED
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-    const isHrOrAdmin = user?.role === 'admin' || user?.role === 'hr';
+    const isAdminOrHr = user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager';
 
     useEffect(() => {
         if (!user) return;
@@ -23,13 +21,12 @@ const HelpdeskPage: React.FC = () => {
     }, [user]);
 
     const fetchTickets = async () => {
-        setLoading(true);
         try {
             // For now simplify: Everyone creates/views their own, HR/Admin views all via separate toggle or API?
             // Existing API: getMyTickets(userId) and getAllTickets().
             // Ideally Admin sees ALL.
             let data: SupportTicket[] = [];
-            if (isHrOrAdmin) {
+            if (isAdminOrHr) {
                 data = await apiService.getAllTickets();
             } else {
                 data = await apiService.getMyTickets(user!.id);
@@ -37,8 +34,6 @@ const HelpdeskPage: React.FC = () => {
             setTickets(data);
         } catch (e) {
             console.error(e);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -62,6 +57,16 @@ const HelpdeskPage: React.FC = () => {
         }
     };
 
+    const handleDeleteTicket = async (ticketId: string) => {
+        if (!window.confirm('Are you sure you want to delete this ticket?')) return;
+        try {
+            await apiService.deleteTicket(ticketId);
+            fetchTickets();
+        } catch (e) {
+            alert('Failed to delete ticket');
+        }
+    };
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'OPEN': return 'bg-blue-500';
@@ -80,7 +85,7 @@ const HelpdeskPage: React.FC = () => {
                     <p className="text-muted-foreground">Raise tickets and track resolution.</p>
                 </div>
 
-                {!isHrOrAdmin && (
+                {!isAdminOrHr && (
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
                             <Button><Plus className="mr-2 h-4 w-4" /> New Ticket</Button>
@@ -125,7 +130,7 @@ const HelpdeskPage: React.FC = () => {
                                 <p className="text-muted-foreground text-sm line-clamp-1">{ticket.description}</p>
                                 <div className="text-xs text-muted-foreground flex gap-4 pt-1 items-center">
                                     <span>Created: {new Date(ticket.createdAt).toLocaleDateString()}</span>
-                                    {ticket.requester && isHrOrAdmin && (
+                                    {ticket.requester && isAdminOrHr && (
                                         <span className="flex items-center gap-1 bg-primary/10 text-primary px-2 py-0.5 rounded">
                                             Requested by: <span className="font-semibold">{ticket.requester.username}</span>
                                             <span className="opacity-75">({ticket.requester.role})</span>
@@ -138,10 +143,23 @@ const HelpdeskPage: React.FC = () => {
                                 <div className={`text-sm font-bold ${ticket.priority === 'HIGH' ? 'text-red-500' : 'text-foreground'}`}>
                                     {ticket.priority}
                                 </div>
-                                {isHrOrAdmin && ticket.requester && (
+                                {isAdminOrHr && ticket.requester && (
                                     <div className="text-[10px] text-muted-foreground">
                                         ID: {ticket.requester.employeeId || ticket.requester.id.substring(0, 8)}
                                     </div>
+                                )}
+                                {isAdminOrHr && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteTicket(ticket.id);
+                                        }}
+                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 )}
                             </div>
                         </CardContent>

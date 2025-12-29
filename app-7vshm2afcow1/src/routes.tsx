@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import WelcomePage from './pages/WelcomePage';
 import LoginPage from './pages/auth/LoginPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
@@ -36,6 +37,11 @@ interface RouteConfig {
 }
 
 const routes: RouteConfig[] = [
+  {
+    name: 'Welcome',
+    path: '/welcome',
+    element: <WelcomePage />
+  },
   {
     name: 'Login',
     path: '/login',
@@ -137,7 +143,7 @@ const routes: RouteConfig[] = [
     name: 'Payroll',
     path: '/payroll',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr', 'employee']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}>
         <PayrollPage />
       </ProtectedRoute>
     )
@@ -155,7 +161,7 @@ const routes: RouteConfig[] = [
     name: 'Admin',
     path: '/admin/employees',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <AdminPage />
       </ProtectedRoute>
     )
@@ -173,7 +179,7 @@ const routes: RouteConfig[] = [
     name: 'Present Employees',
     path: '/attendance/present',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <PresentEmployeesPage />
       </ProtectedRoute>
     ),
@@ -192,7 +198,7 @@ const routes: RouteConfig[] = [
     name: 'Employees List',
     path: '/employees',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <EmployeesListPage />
       </ProtectedRoute>
     )
@@ -201,7 +207,7 @@ const routes: RouteConfig[] = [
     name: 'Employee History',
     path: '/employees/:id/history',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <EmployeeHistoryPage />
       </ProtectedRoute>
     ),
@@ -211,7 +217,7 @@ const routes: RouteConfig[] = [
     name: 'Shift Management',
     path: '/shifts',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <ShiftManagementPage />
       </ProtectedRoute>
     )
@@ -220,7 +226,7 @@ const routes: RouteConfig[] = [
     name: 'Notification Settings',
     path: '/notification-settings',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <NotificationManagementPage />
       </ProtectedRoute>
     )
@@ -238,7 +244,7 @@ const routes: RouteConfig[] = [
     name: 'Send Notification',
     path: '/admin/notifications/send',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <SendNotificationPage />
       </ProtectedRoute>
     ),
@@ -248,7 +254,7 @@ const routes: RouteConfig[] = [
     name: 'Performance',
     path: '/performance',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr', 'employee', 'marketing', 'marketing_executive']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee', 'marketing', 'marketing_executive']}>
         <PerformancePage />
       </ProtectedRoute>
     )
@@ -257,7 +263,7 @@ const routes: RouteConfig[] = [
     name: 'Helpdesk',
     path: '/helpdesk',
     element: (
-      <ProtectedRoute allowedRoles={['admin', 'hr', 'employee', 'marketing', 'marketing_executive']}>
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee', 'marketing', 'marketing_executive']}>
         <HelpdeskPage />
       </ProtectedRoute>
     )

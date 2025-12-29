@@ -26,7 +26,7 @@ const DashboardPage: React.FC = () => {
         let statsData = null;
         let pending = [] as Leave[];
         let holidayList: Holiday[] = [];
-        if (role === 'admin' || role === 'hr') {
+        if (role === 'admin' || role === 'hr' || role === 'manager') {
           statsData = await apiService.getDashboardStats();
           pending = await apiService.getPendingLeaves();
           holidayList = await apiService.getHolidays();
@@ -256,7 +256,7 @@ const DashboardPage: React.FC = () => {
       </Card>
 
       {/* Stats Grid */}
-      {(user?.role === 'admin' || user?.role === 'hr') && stats && (
+      {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && stats && (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           <Link to="/employees">
             <Card className="glass-card shadow-elegant hover:shadow-glow transition-smooth cursor-pointer h-full">
@@ -410,7 +410,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* HR Sections */}
-      {(user?.role === 'admin' || user?.role === 'hr') && (
+      {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
         <div className="space-y-8 mt-8">
           {/* Pending Leaves */}
           <div>

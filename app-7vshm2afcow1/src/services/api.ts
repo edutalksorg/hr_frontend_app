@@ -31,12 +31,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090
 class ApiService {
   private client: AxiosInstance;
   private token: string | null = null;
-  private refreshToken: string | null = null;
 
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       timeout: 10000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json'
       }
@@ -48,7 +48,6 @@ class ApiService {
 
   private loadTokens() {
     this.token = localStorage.getItem('token');
-    this.refreshToken = localStorage.getItem('refreshToken');
     if (this.token) {
       this.client.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
     }
@@ -60,7 +59,7 @@ class ApiService {
       async (error: AxiosError) => {
         const originalRequest = error.config as any;
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
           originalRequest._retry = true;
 
           try {
@@ -68,6 +67,10 @@ class ApiService {
             if (newToken && originalRequest) {
               originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
               return this.client(originalRequest);
+            } else {
+              this.logout();
+              window.location.href = '/login';
+              return Promise.reject(error);
             }
           } catch (refreshError) {
             this.logout();
@@ -139,22 +142,17 @@ class ApiService {
   }
 
   private async refreshAccessToken(): Promise<string | null> {
-    if (!this.refreshToken) return null;
-
     try {
-      // Send a JSON body containing the refresh token. Some backends expect
-      // { refreshToken: '...' } rather than a raw string.
-      const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, { refreshToken: this.refreshToken });
+      // With withCredentials: true, the browser will automatically send the
+      // refreshToken cookie to the backend.
+      const response = await this.client.post('/api/v1/auth/refresh', {});
 
-      const { accessToken, refreshToken: newRefreshToken } = response.data || {};
+      const { accessToken } = response.data || {};
       if (accessToken) {
         this.setToken(accessToken);
+        return accessToken;
       }
-      if (newRefreshToken) {
-        this.setRefreshToken(newRefreshToken);
-      }
-
-      return accessToken || null;
+      return null;
     } catch (error) {
       console.error('Token refresh failed:', error);
       return null;
@@ -167,16 +165,10 @@ class ApiService {
     this.client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
-  private setRefreshToken(refreshToken: string) {
-    this.refreshToken = refreshToken;
-    localStorage.setItem('refreshToken', refreshToken);
-  }
 
   private clearTokens() {
     this.token = null;
-    this.refreshToken = null;
     localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
     delete this.client.defaults.headers.common['Authorization'];
   }
 
@@ -206,12 +198,10 @@ class ApiService {
 
     const authResponse: AuthResponse = {
       token: response.data.accessToken,
-      refreshToken: response.data.refreshToken,
       user: undefined as any
     };
 
     this.setToken(authResponse.token!);
-    if (authResponse.refreshToken) this.setRefreshToken(authResponse.refreshToken!);
 
     // Fetch current user details
     const user = await this.getCurrentUser();
@@ -260,12 +250,10 @@ class ApiService {
 
     const authResponse: AuthResponse = {
       token: response.data.accessToken,
-      refreshToken: response.data.refreshToken,
       user: {} as User // Placeholder, will fetch below
     };
 
     this.setToken(authResponse.token!);
-    this.setRefreshToken(authResponse.refreshToken!);
 
     const user = await this.getCurrentUser();
     authResponse.user = user;
@@ -273,11 +261,15 @@ class ApiService {
     return authResponse;
   }
 
-  logout() {
-    // Optional: Call backend logout if needed
-    // this.client.post('/api/auth/logout', { refreshToken: this.refreshToken });
-    this.clearTokens();
-    localStorage.removeItem('currentUser');
+  async logout() {
+    try {
+      await this.client.post('/api/v1/auth/logout');
+    } catch (error) {
+      console.warn('Logout request failed:', error);
+    } finally {
+      this.clearTokens();
+      localStorage.removeItem('currentUser');
+    }
   }
 
   async getCurrentUser(): Promise<User> {
@@ -378,6 +370,15 @@ class ApiService {
   async getApprovedLeaves(): Promise<Leave[]> {
     const response = await this.client.get<Leave[]>('/api/v1/leave/approved');
     return response.data;
+  }
+
+  async getAllLeavesRequests(): Promise<Leave[]> {
+    const response = await this.client.get<Leave[]>('/api/v1/leave/all');
+    return response.data;
+  }
+
+  async deleteLeave(leaveId: string): Promise<void> {
+    await this.client.delete(`/api/v1/leave/${leaveId}`);
   }
 
   async createLeave(leave: Omit<Leave, 'id' | 'createdAt'>): Promise<Leave> {
@@ -491,30 +492,32 @@ class ApiService {
   }
 
   async getNotes(userId: string): Promise<Note[]> {
-    const response = await this.client.get<Note[]>(`/api/notes/user/${userId}`);
+    const response = await this.client.get<Note[]>(`/api/v1/notes/user/${userId}`);
     return response.data;
   }
 
   async createNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note> {
-    const response = await this.client.post<Note>('/api/notes', {
+    const response = await this.client.post<Note>('/api/v1/notes', {
       userId: note.userId,
       teamId: note.teamId,
       title: note.title,
-      body: note.content
+      body: note.body,
+      isPinned: note.isPinned
     });
     return response.data;
   }
 
   async updateNote(noteId: string, updates: Partial<Note>): Promise<Note> {
-    const response = await this.client.put<Note>(`/api/notes/${noteId}`, {
+    const response = await this.client.put<Note>(`/api/v1/notes/${noteId}`, {
       title: updates.title,
-      body: updates.content
+      body: updates.body,
+      isPinned: updates.isPinned
     });
     return response.data;
   }
 
   async deleteNote(noteId: string): Promise<void> {
-    await this.client.delete(`/api/notes/${noteId}`);
+    await this.client.delete(`/api/v1/notes/${noteId}`);
   }
 
   async getHolidays(): Promise<Holiday[]> {
@@ -809,6 +812,10 @@ class ApiService {
   async getTicketComments(ticketId: string): Promise<TicketComment[]> {
     const response = await this.client.get<TicketComment[]>(`/api/v1/helpdesk/tickets/${ticketId}/comments`);
     return response.data;
+  }
+
+  async deleteTicket(ticketId: string): Promise<void> {
+    await this.client.delete(`/api/v1/helpdesk/tickets/${ticketId}`);
   }
 }
 

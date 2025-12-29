@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Plus, Check, X } from 'lucide-react';
-import type { Leave, LeaveBalance } from '@/types';
+import { Calendar, Plus, Check, X, Trash2 } from 'lucide-react';
+import type { Leave } from '@/types';
 import { toast } from 'sonner';
 import { BackButton } from '@/components/common/BackButton';
 
@@ -33,37 +33,20 @@ const LeavePage: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const promises = [
-        apiService.getLeaves(),
-        // apiService.getLeaveBalance()
-      ];
+      const myLeavesData = await apiService.getLeaves();
+      const role = user?.role?.toLowerCase();
 
-      if (user?.role === 'admin' || user?.role === 'hr') {
-        promises.push(apiService.getPendingLeaves());
-        promises.push(apiService.getApprovedLeaves());
+      if (role === 'admin' || role === 'hr' || role === 'manager') {
+        const allSystemLeaves = await apiService.getAllLeavesRequests();
+        const combined = [...allSystemLeaves, ...myLeavesData];
+        const uniqueLeaves = Array.from(new Map(combined.map((item: Leave) => [item.id, item])).values());
+        uniqueLeaves.sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime());
+        setLeaves(uniqueLeaves);
+      } else {
+        const uniqueLeaves = Array.from(new Map(myLeavesData.map((item: Leave) => [item.id, item])).values());
+        uniqueLeaves.sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime());
+        setLeaves(uniqueLeaves);
       }
-
-      const results = await Promise.all(promises);
-      const myLeaves = results[0] as Leave[];
-      // const balanceData = results[1] as LeaveBalance;
-
-      let pendingLeaves: Leave[] = [];
-      let approvedLeaves: Leave[] = [];
-
-      if (user?.role === 'admin' || user?.role === 'hr') {
-        pendingLeaves = (results[1] || []) as Leave[];
-        approvedLeaves = (results[2] || []) as Leave[];
-      }
-
-      // Combine my leaves, pending leaves and approved leaves (deduplicated by ID)
-      const allLeaves = [...pendingLeaves, ...approvedLeaves, ...myLeaves];
-      const uniqueLeaves = Array.from(new Map(allLeaves.map(item => [item.id, item])).values());
-
-      // Sort by date descending
-      uniqueLeaves.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
-
-      setLeaves(uniqueLeaves);
-      // setBalance(balanceData);
     } catch (error) {
       console.error('Failed to fetch leave data:', error);
     } finally {
@@ -105,6 +88,17 @@ const LeavePage: React.FC = () => {
       fetchData();
     } catch (error) {
       toast.error('Failed to reject leave');
+    }
+  };
+
+  const handleDelete = async (leaveId: string) => {
+    if (!confirm('Are you sure you want to delete this leave record?')) return;
+    try {
+      await apiService.deleteLeave(leaveId);
+      toast.success('Leave record deleted');
+      fetchData();
+    } catch (error) {
+      toast.error('Failed to delete leave record');
     }
   };
 
@@ -230,16 +224,25 @@ const LeavePage: React.FC = () => {
                       }`}>
                       {leave.status}
                     </span>
-                    {((user?.role === 'admin') || (user?.role === 'hr' && leave.userRole?.toUpperCase() !== 'HR')) && leave.status.toLowerCase() === 'pending' && (
+                    {((user?.role === 'admin') || (user?.role === 'hr' && leave.userRole?.toUpperCase() !== 'HR') || (user?.role === 'manager')) && (
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleApprove(leave.id)} className="gap-1">
-                          <Check className="h-3 w-3" />
-                          Approve
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleReject(leave.id)} className="gap-1">
-                          <X className="h-3 w-3" />
-                          Reject
-                        </Button>
+                        {leave.status.toLowerCase() === 'pending' && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => handleApprove(leave.id)} className="gap-1 border-green-200 hover:bg-green-50 text-green-700">
+                              <Check className="h-4 w-4" />
+                              Approve
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleReject(leave.id)} className="gap-1 border-red-200 hover:bg-red-50 text-red-700">
+                              <X className="h-4 w-4" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {(leave.status.toLowerCase() === 'approved' || leave.status.toLowerCase() === 'rejected') && (
+                          <Button size="icon" variant="ghost" onClick={() => handleDelete(leave.id)} className="text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>

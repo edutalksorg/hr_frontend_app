@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, Upload, Trash2, Download } from 'lucide-react';
+import { FileText, Upload, Trash2, Download, Check, ChevronsUpDown } from 'lucide-react';
 import type { Document, User } from '@/types';
 import { toast } from 'sonner';
 import {
@@ -24,6 +24,21 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 const DocumentsPage: React.FC = () => {
   const { user } = useAuth();
@@ -33,10 +48,11 @@ const DocumentsPage: React.FC = () => {
   const [newDoc, setNewDoc] = useState({ category: '', file: null as File | null });
   const [users, setUsers] = useState<User[]>([]);
   const [targetUserId, setTargetUserId] = useState<string>('');
+  const [isUserComboOpen, setIsUserComboOpen] = useState(false);
 
   useEffect(() => {
     fetchDocuments();
-    if (user?.role === 'admin' || user?.role === 'hr') {
+    if (user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') {
       fetchUsers();
     }
   }, [user]);
@@ -55,7 +71,7 @@ const DocumentsPage: React.FC = () => {
       let data: Document[] = [];
       const role = user?.role?.toLowerCase();
 
-      if (role === 'admin' || role === 'hr') {
+      if (role === 'admin' || role === 'hr' || role === 'manager') {
         data = await apiService.getAllDocuments();
       } else if (user?.id) {
         data = await apiService.getDocuments(user.id);
@@ -65,7 +81,7 @@ const DocumentsPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch documents:', error);
       // Fallback if permission issue for "All"
-      if (user?.id && (user.role === 'admin' || user.role === 'hr')) {
+      if (user?.id && (user.role === 'admin' || user.role === 'hr' || user.role === 'manager')) {
         try {
           // Maybe API endpoint for "All" failed, try getting own documents
           const data = await apiService.getDocuments(user.id);
@@ -111,7 +127,7 @@ const DocumentsPage: React.FC = () => {
       return;
     }
 
-    if ((user?.role === 'admin' || user?.role === 'hr') && !targetUserId &&
+    if ((user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && !targetUserId &&
       ['Payroll', 'Experience Letter', 'Relieving Letter'].includes(newDoc.category)) {
       toast.error('Please select a target user for this document type');
       return;
@@ -135,6 +151,14 @@ const DocumentsPage: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -150,31 +174,116 @@ const DocumentsPage: React.FC = () => {
               Upload Document
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Upload New Document</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
 
-              {(user?.role === 'admin' || user?.role === 'hr') && (
+              {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
                 <div className="grid gap-2">
                   <Label htmlFor="targetUser">Select User (For Payroll/Letters)</Label>
-                  <Select
-                    value={targetUserId}
-                    onValueChange={setTargetUserId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Employee / Marketing Executive" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      <SelectItem value="self">Myself (Personal Upload)</SelectItem>
-                      {users.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.username} ({u.employeeId}) - {u.role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={isUserComboOpen} onOpenChange={setIsUserComboOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={isUserComboOpen}
+                        className="w-full justify-between h-12 px-4 shadow-sm hover:border-primary/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          {targetUserId === 'self' ? (
+                            "Myself (Personal Upload)"
+                          ) : targetUserId ? (
+                            <>
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={users.find((u) => u.id === targetUserId)?.profilePhoto} />
+                                <AvatarFallback>{users.find((u) => u.id === targetUserId)?.username?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <span className="truncate">
+                                {users.find((u) => u.id === targetUserId)?.username} ({users.find((u) => u.id === targetUserId)?.employeeId})
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">Select Employee / Marketing Executive...</span>
+                          )}
+                        </div>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-[100]" align="start">
+                      <Command className="w-full">
+                        <CommandInput placeholder="Search by name, email, or employee ID..." className="h-10" />
+                        <CommandList className="max-h-[400px]">
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="self"
+                              onSelect={() => {
+                                setTargetUserId('self');
+                                setIsUserComboOpen(false);
+                              }}
+                              className="flex items-center gap-3 py-3 px-4 cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4 shrink-0",
+                                  targetUserId === 'self' ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8 bg-primary/10">
+                                  <AvatarFallback>ME</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-sm text-primary">Myself</span>
+                                  <span className="text-xs text-muted-foreground">Personal Upload</span>
+                                </div>
+                              </div>
+                            </CommandItem>
+
+                            {users.map((u) => (
+                              <CommandItem
+                                key={u.id}
+                                value={`${u.username} ${u.email} ${u.employeeId}`}
+                                onSelect={() => {
+                                  setTargetUserId(u.id);
+                                  setIsUserComboOpen(false);
+                                }}
+                                className="flex items-center gap-3 py-3 px-4 cursor-pointer"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4 shrink-0",
+                                    targetUserId === u.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex items-center gap-3 w-full">
+                                  <Avatar className="h-10 w-10 border border-border/50">
+                                    <AvatarImage src={u.profilePhoto} />
+                                    <AvatarFallback>{u.username?.charAt(0)}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex flex-col flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-bold text-sm truncate">{u.username}</span>
+                                      <Badge variant="outline" className="text-[10px] h-4 px-1 shrink-0 uppercase">
+                                        {u.role?.replace('_', ' ')}
+                                      </Badge>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground truncate">
+                                      {u.employeeId && <span className="font-medium text-primary/80">{u.employeeId}</span>}
+                                      {u.employeeId && <span>•</span>}
+                                      <span className="truncate">{u.email}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
 
@@ -188,7 +297,7 @@ const DocumentsPage: React.FC = () => {
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(user?.role === 'admin' || user?.role === 'hr') && (
+                    {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
                       <>
                         <SelectItem value="Payroll">Payroll</SelectItem>
                         <SelectItem value="Experience Letter">Experience Letter</SelectItem>
@@ -262,7 +371,7 @@ const DocumentsPage: React.FC = () => {
                   </Button>
 
                   {/* Delete: Owner or Admin/HR? Requirement doesn't explicitly restrict delete, assuming owner or Admin */}
-                  {(user?.role === 'admin' || user?.role === 'hr' || doc.userId === user?.id) && (
+                  {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
                     <Button
                       variant="ghost"
                       size="sm"

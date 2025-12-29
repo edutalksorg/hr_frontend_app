@@ -12,15 +12,10 @@ import {
   Clock,
   MapPin,
   Search,
-  User as UserIcon,
   LogOut,
   LogIn,
-  CheckCircle,
   CalendarDays,
-  Activity,
-  CalendarOff,
-  Stethoscope,
-  Palmtree
+  Activity
 } from 'lucide-react';
 import type { User, Attendance, Leave, Holiday, AttendanceStats } from '@/types';
 import { cn, calculateDuration } from '@/lib/utils';
@@ -62,7 +57,7 @@ const AttendancePage: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const isManagementRole = currentUser?.role === 'admin' || currentUser?.role === 'hr';
+  const isManagementRole = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
 
   // 1. Initial Data Fetch (Users for Admin, Holidays for All)
   useEffect(() => {
