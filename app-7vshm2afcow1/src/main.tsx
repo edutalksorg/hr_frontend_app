@@ -11,3 +11,13 @@ createRoot(document.getElementById("root")!).render(
     </AppWrapper>
   </StrictMode>
 );
+
+// Unregister any failing or stale service workers from previous deployments
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    for (const registration of registrations) {
+      console.log('Unregistering stale service worker:', registration);
+      registration.unregister();
+    }
+  });
+}

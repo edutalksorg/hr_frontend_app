@@ -25,8 +25,14 @@ import {
 } from '@/types';
 import { mockPayroll } from './mockData';
 
-// Prefer Vite env var, fall back to local dev server on port 5000 (matches .env.local)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9090';
+// Prefer Vite env var. NEVER fall back to hardcoded URLs.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+console.log('🔌 API Base URL:', API_BASE_URL);
+
+if (!API_BASE_URL) {
+  console.error('⚠️ VITE_API_BASE_URL is not defined! API calls will fail.');
+}
 
 class ApiService {
   private client: AxiosInstance;
