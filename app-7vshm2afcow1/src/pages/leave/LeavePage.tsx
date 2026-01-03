@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { apiService } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,8 @@ const LeavePage: React.FC = () => {
     reason: ''
   });
 
+  const [searchParams] = useSearchParams();
+
   useEffect(() => {
     fetchData();
   }, [user]);
@@ -34,9 +37,9 @@ const LeavePage: React.FC = () => {
   const fetchData = async () => {
     try {
       const myLeavesData = await apiService.getLeaves();
-      const role = user?.role?.toLowerCase();
+      const isAdminOrManager = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'hr' || user?.role?.toLowerCase() === 'manager';
 
-      if (role === 'admin' || role === 'hr' || role === 'manager') {
+      if (isAdminOrManager) {
         const allSystemLeaves = await apiService.getAllLeavesRequests();
         const combined = [...allSystemLeaves, ...myLeavesData];
         const uniqueLeaves = Array.from(new Map(combined.map((item: Leave) => [item.id, item])).values());
@@ -190,7 +193,11 @@ const LeavePage: React.FC = () => {
             {leaves.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">No leave requests found</p>
             ) : (
-              leaves.map((leave) => (
+              leaves.filter(l => {
+                const statusFilter = searchParams.get('status');
+                if (statusFilter === 'approved') return l.status?.toLowerCase() === 'approved';
+                return true;
+              }).map((leave) => (
                 <div key={leave.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                   <div className="flex items-center gap-4">
                     {leave.userName ? (

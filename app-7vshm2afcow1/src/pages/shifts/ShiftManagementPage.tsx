@@ -1,14 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
     Table,
     TableBody,
     TableCell,
-    TableHead,
-    TableHeader,
     TableRow
 } from '@/components/ui/table';
 import {
@@ -28,16 +27,17 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Clock, Plus, Trash2, UserCog, Settings } from 'lucide-react';
+import { Clock, Plus, Trash2, UserCog, Settings, CalendarClock, Briefcase } from 'lucide-react';
 
 import { apiService } from '@/services/api';
 import { Shift, User } from '@/types';
 import { toast } from 'sonner';
 
-const ShiftManagementPage: React.FC = () => {
+
+const ShiftManagementPage: React.FC<{ hideHeader?: boolean }> = ({ hideHeader = false }) => {
     const [shifts, setShifts] = useState<Shift[]>([]);
     const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(false);
+
 
     // New Shift State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,7 +48,7 @@ const ShiftManagementPage: React.FC = () => {
 
     // Load Data
     const loadData = async () => {
-        setLoading(true);
+
         try {
             const [shiftsData, usersData] = await Promise.all([
                 apiService.getAllShifts(),
@@ -60,7 +60,7 @@ const ShiftManagementPage: React.FC = () => {
             console.error(error);
             toast.error('Failed to load shift data');
         } finally {
-            setLoading(false);
+
         }
     };
 
@@ -142,330 +142,386 @@ const ShiftManagementPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 max-w-5xl mx-auto container p-6">
-            <div>
-                <h1 className="text-3xl font-bold">Shift Management</h1>
-                <p className="text-muted-foreground p-1">Manage work shifts and assignments</p>
-            </div>
+        <div className={cn("space-y-12 animate-in fade-in duration-700 max-w-7xl mx-auto container", hideHeader ? "pt-0 px-2" : "p-6 pb-20")}>
+            {/* Header */}
+            {hideHeader ? (
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6 bg-white border border-slate-200 p-6 rounded-[24px] shadow-sm mb-6">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2.5 bg-primary/10 rounded-xl">
+                            <CalendarClock className="h-6 w-6 text-primary" />
+                        </div>
+                        <h2 className="text-xl font-black tracking-tight text-slate-900 uppercase">Shift Manager</h2>
+                    </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-                {/* Manage Shifts */}
-                <Card className="glass-card shadow-elegant">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle className="flex items-center gap-2">
+                    <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+                        <DialogTrigger asChild>
+                            <Button className="h-10 px-6 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold uppercase tracking-widest text-xs transition-all shadow-lg hover:scale-105 active:scale-95 shadow-primary/20">
+                                <Plus className="mr-2 h-4 w-4" /> New Roster
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="rounded-[32px] border-border bg-card">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-black uppercase tracking-tight">{isEditing ? 'Update Roster' : 'New Shift Configuration'}</DialogTitle>
+                                <DialogDescription className="font-medium text-muted-foreground uppercase text-xs tracking-wider">Define operational timings and attendance protocols.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-6 py-4">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Shift Identity</Label>
+                                    <Input
+                                        placeholder="e.g. MORNING OPERATIONS"
+                                        value={currentShift.name}
+                                        onChange={e => setCurrentShift({ ...currentShift, name: e.target.value.toUpperCase() })}
+                                        className="h-12 rounded-xl font-bold bg-muted border-transparent focus:bg-background transition-colors"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Start Time</Label>
+                                        <Input type="time"
+                                            value={currentShift.startTime}
+                                            onChange={e => setCurrentShift({ ...currentShift, startTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">End Time</Label>
+                                        <Input type="time"
+                                            value={currentShift.endTime}
+                                            onChange={e => setCurrentShift({ ...currentShift, endTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Late Arrival Tolerance (MIN)</Label>
+                                    <Input type="number"
+                                        value={currentShift.lateGraceMinutes}
+                                        onChange={e => setCurrentShift({ ...currentShift, lateGraceMinutes: parseInt(e.target.value) })}
+                                        className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Half Day Cutoff</Label>
+                                        <Input type="time"
+                                            value={currentShift.halfDayTime || ''}
+                                            onChange={e => setCurrentShift({ ...currentShift, halfDayTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Absent Mark Cutoff</Label>
+                                        <Input type="time"
+                                            value={currentShift.absentTime || ''}
+                                            onChange={e => setCurrentShift({ ...currentShift, absentTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleSaveShift} className="h-12 rounded-xl w-full bg-primary font-bold uppercase tracking-widest">{isEditing ? 'Save Changes' : 'Initialize Shift'}</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            ) : (
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div>
+                        <div className="flex items-center gap-4 mb-2">
+                            <div className="p-3 bg-primary rounded-2xl shadow-xl shadow-primary/20">
+                                <CalendarClock className="h-6 w-6 text-primary-foreground" />
+                            </div>
+                            <h1 className="text-4xl font-black tracking-tighter text-foreground">Shift <span className="text-primary">Manager</span></h1>
+                        </div>
+                        <p className="text-muted-foreground font-bold text-sm tracking-tight opacity-70 uppercase tracking-[0.1em]">Schedule & Rostering Control</p>
+                    </div>
+                    <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+                        <DialogTrigger asChild>
+                            <Button className="h-14 px-8 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-black uppercase tracking-widest transition-all shadow-xl hover:scale-105 active:scale-95 shadow-primary/20">
+                                <Plus className="mr-3 h-5 w-5" /> Create Roster
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="rounded-[32px] border-border bg-card">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-black uppercase tracking-tight">{isEditing ? 'Update Roster' : 'New Shift Configuration'}</DialogTitle>
+                                <DialogDescription className="font-medium text-muted-foreground uppercase text-xs tracking-wider">Define operational timings and attendance protocols.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-6 py-4">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Shift Identity</Label>
+                                    <Input
+                                        placeholder="e.g. MORNING OPERATIONS"
+                                        value={currentShift.name}
+                                        onChange={e => setCurrentShift({ ...currentShift, name: e.target.value.toUpperCase() })}
+                                        className="h-12 rounded-xl font-bold bg-muted border-transparent focus:bg-background transition-colors"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Start Time</Label>
+                                        <Input type="time"
+                                            value={currentShift.startTime}
+                                            onChange={e => setCurrentShift({ ...currentShift, startTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">End Time</Label>
+                                        <Input type="time"
+                                            value={currentShift.endTime}
+                                            onChange={e => setCurrentShift({ ...currentShift, endTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Late Arrival Tolerance (MIN)</Label>
+                                    <Input type="number"
+                                        value={currentShift.lateGraceMinutes}
+                                        onChange={e => setCurrentShift({ ...currentShift, lateGraceMinutes: parseInt(e.target.value) })}
+                                        className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Half Day Cutoff</Label>
+                                        <Input type="time"
+                                            value={currentShift.halfDayTime || ''}
+                                            onChange={e => setCurrentShift({ ...currentShift, halfDayTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Absent Mark Cutoff</Label>
+                                        <Input type="time"
+                                            value={currentShift.absentTime || ''}
+                                            onChange={e => setCurrentShift({ ...currentShift, absentTime: e.target.value })}
+                                            className="h-12 rounded-xl bg-muted border-transparent focus:bg-background"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={handleSaveShift} className="h-12 rounded-xl w-full bg-primary font-bold uppercase tracking-widest">{isEditing ? 'Save Changes' : 'Initialize Shift'}</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </header>
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-12">
+                {/* Manage Shifts & Rules */}
+                <div className="lg:col-span-4 space-y-6">
+                    <Card className="rounded-[32px] border border-border shadow-sm overflow-hidden bg-card/50">
+                        <CardHeader className="bg-muted/30 pb-4">
+                            <CardTitle className="flex items-center gap-3 text-lg font-black uppercase tracking-tight text-foreground">
                                 <Clock className="h-5 w-5 text-primary" />
-                                Manage Shifts
-                            </CardTitle>
-                            <CardDescription>Define work shifts and timings</CardDescription>
-                        </div>
-                        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-                            <DialogTrigger asChild>
-                                <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Add Shift</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>{isEditing ? 'Edit Shift' : 'Add New Shift'}</DialogTitle>
-                                    <DialogDescription>{isEditing ? 'Update shift details.' : 'Create a new shift schedule.'}</DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 py-2">
-                                    <div className="space-y-2">
-                                        <Label>Shift Name</Label>
-                                        <Input
-                                            placeholder="e.g. Morning Shift"
-                                            value={currentShift.name}
-                                            onChange={e => setCurrentShift({ ...currentShift, name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>Start Time</Label>
-                                            <Input type="time"
-                                                value={currentShift.startTime}
-                                                onChange={e => setCurrentShift({ ...currentShift, startTime: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>End Time</Label>
-                                            <Input type="time"
-                                                value={currentShift.endTime}
-                                                onChange={e => setCurrentShift({ ...currentShift, endTime: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Late Grace Period (minutes)</Label>
-                                        <Input type="number"
-                                            value={currentShift.lateGraceMinutes}
-                                            onChange={e => setCurrentShift({ ...currentShift, lateGraceMinutes: parseInt(e.target.value) })}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label>Half Day Time (Cutoff)</Label>
-                                            <Input type="time"
-                                                value={currentShift.halfDayTime || ''}
-                                                onChange={e => setCurrentShift({ ...currentShift, halfDayTime: e.target.value })}
-                                                placeholder="e.g. 14:00"
-                                            />
-                                            <p className="text-[10px] text-muted-foreground">Leaving before this marks Half Day</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Absent Time (Cutoff)</Label>
-                                            <Input type="time"
-                                                value={currentShift.absentTime || ''}
-                                                onChange={e => setCurrentShift({ ...currentShift, absentTime: e.target.value })}
-                                                placeholder="e.g. 11:00"
-                                            />
-                                            <p className="text-[10px] text-muted-foreground">Check-in after this marks Absent</p>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Late Count Limit</Label>
-                                        <Input type="number"
-                                            value={currentShift.lateCountLimit || 3}
-                                            onChange={e => setCurrentShift({ ...currentShift, lateCountLimit: parseInt(e.target.value) })}
-                                        />
-                                        <p className="text-[10px] text-muted-foreground">Number of lates allowed before penalty</p>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button onClick={handleSaveShift}>{isEditing ? 'Update Shift' : 'Create Shift'}</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Timing</TableHead>
-                                    <TableHead>Grace</TableHead>
-                                    <TableHead className="w-[100px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {shifts.map(shift => (
-                                    <TableRow key={shift.id}>
-                                        <TableCell className="font-medium">{shift.name}</TableCell>
-                                        <TableCell>{shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)}</TableCell>
-                                        <TableCell>{shift.lateGraceMinutes} min</TableCell>
-                                        <TableCell className="flex gap-1 justify-end">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditShift(shift)}>
-                                                <Settings className="h-4 w-4 text-primary" />
-                                            </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteShift(shift.id)}>
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {shifts.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center text-muted-foreground h-24">No shifts defined</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-
-                {/* Attendance Rules */}
-                <Card className="glass-card shadow-elegant">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Settings className="h-5 w-5 text-primary" />
-                            Attendance Rules
-                        </CardTitle>
-                        <CardDescription>Global tracking settings</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Calculation Logic</Label>
-                            <p className="text-sm text-muted-foreground">
-                                Attendance percentage is calculated as: <br />
-                                <code>(Present + Late) / Total Working Days * 100</code>
-                            </p>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Shift Assignment</Label>
-                            <p className="text-sm text-muted-foreground">
-                                Employees without a shift are marked Late after <strong>09:45 AM</strong> (Default).
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Assign Shifts - Grouped by Shift */}
-            <div className="space-y-8">
-                <h2 className="text-2xl font-bold border-b pb-2">Shift Assignments</h2>
-
-                {/* 1. Mapped Shifts */}
-                {shifts.map(shift => (
-                    <Card key={shift.id} className="glass-card shadow-elegant border-l-4 border-l-primary/50">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-primary" />
-                                    {shift.name}
-                                    <span className="text-sm font-normal text-muted-foreground ml-2">
-                                        ({shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)})
-                                    </span>
-                                </div>
-                                <span className="text-sm px-3 py-1 bg-primary/10 rounded-full text-primary">
-                                    {users.filter(u => u.shift?.id === shift.id).length} Employees
-                                </span>
+                                Active Rosters
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-0">
                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Employee</TableHead>
-                                        <TableHead>Role</TableHead>
-                                        <TableHead>Employee ID</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
                                 <TableBody>
-                                    {users.filter(u => u.shift?.id === shift.id).length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="text-center py-6 text-muted-foreground italic">
-                                                No employees assigned to this shift
+                                    {shifts.map(shift => (
+                                        <TableRow key={shift.id} className="hover:bg-muted/50 border-border/50">
+                                            <TableCell className="font-bold py-4 pl-6">
+                                                <div className="text-sm text-foreground">{shift.name}</div>
+                                                <div className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">{shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)}</div>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6">
+                                                <div className="flex gap-1 justify-end">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleEditShift(shift)} className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary">
+                                                        <Settings className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteShift(shift.id)} className="h-8 w-8 rounded-lg hover:bg-destructive/10 hover:text-destructive">
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
-                                    ) : (
-                                        users.filter(u => u.shift?.id === shift.id).map(u => (
-                                            <TableRow key={u.id}>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar className="h-9 w-9">
-                                                            <AvatarImage src={u.profilePhoto} />
-                                                            <AvatarFallback className="bg-primary/10 text-primary">
-                                                                {u.username.charAt(0).toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div>
-                                                            <p className="font-medium leading-none">{u.username}</p>
-                                                            <p className="text-xs text-muted-foreground mt-1">{u.email}</p>
-                                                        </div>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="capitalize">
-                                                    <span className="px-2 py-1 rounded-md bg-muted text-xs font-medium border">
-                                                        {u.role.replace('_', ' ')}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="text-muted-foreground text-sm">
-                                                    {u.employeeId || '-'}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Select onValueChange={(val) => handleAssignShift(u.id, val)} value={u.shift?.id || "none"}>
-                                                        <SelectTrigger className="w-[180px] ml-auto">
-                                                            <SelectValue placeholder="Assign Shift" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">No Shift (Default)</SelectItem>
-                                                            {shifts.map(s => (
-                                                                <SelectItem key={s.id} value={s.id}>
-                                                                    {s.name} ({s.startTime.slice(0, 5)})
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                    ))}
+                                    {shifts.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={2} className="text-center py-8 text-muted-foreground text-xs font-bold uppercase tracking-widest">No shift patterns defined</TableCell>
+                                        </TableRow>
                                     )}
                                 </TableBody>
                             </Table>
                         </CardContent>
                     </Card>
-                ))}
 
-                {/* 2. Unassigned / Default Shift */}
-                <Card className="glass-card shadow-elegant border-l-4 border-l-muted">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <UserCog className="h-5 w-5 text-muted-foreground" />
-                                Default / Unassigned
-                                <span className="text-sm font-normal text-muted-foreground ml-2">
-                                    (09:30 - 18:30)
-                                </span>
+                    <Card className="rounded-[32px] border border-border shadow-sm overflow-hidden bg-card/50">
+                        <CardHeader className="bg-muted/30 pb-4">
+                            <CardTitle className="flex items-center gap-3 text-lg font-black uppercase tracking-tight text-foreground">
+                                <Settings className="h-5 w-5 text-primary" />
+                                Protocol Logic
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-secondary tracking-widest">Attendance</Label>
+                                <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                                    Efficiency = (Present + Late) / Total Days * 100
+                                </p>
                             </div>
-                            <span className="text-sm px-3 py-1 bg-muted rounded-full text-muted-foreground">
-                                {users.filter(u => !u.shift).length} Employees
-                            </span>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Employee</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Employee ID</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {users.filter(u => !u.shift).length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground italic">
-                                            All employees have been assigned a shift
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    users.filter(u => !u.shift).map(u => (
-                                        <TableRow key={u.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="h-9 w-9">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-destructive tracking-widest">Penalty</Label>
+                                <p className="text-xs font-medium text-muted-foreground leading-relaxed">
+                                    Unassigned personnel marked Late after <span className="text-foreground font-bold">09:45 AM</span>.
+                                </p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Assignments */}
+                <div className="lg:col-span-8 space-y-8">
+                    {/* Mapped Shifts */}
+                    {shifts.map(shift => (
+                        <Card key={shift.id} className="rounded-[32px] border border-border bg-card shadow-sm overflow-hidden hover:shadow-md transition-all">
+                            <CardHeader className="bg-muted/10 border-b border-border/50 flex flex-row items-center justify-between py-6 px-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <Clock className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-xl font-black uppercase tracking-tight text-foreground">{shift.name}</CardTitle>
+                                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">{shift.startTime.slice(0, 5)} - {shift.endTime.slice(0, 5)} • {shift.lateGraceMinutes} min grace</p>
+                                    </div>
+                                </div>
+                                <div className="bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">
+                                    {users.filter(u => u.shift?.id === shift.id).length} Active
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_auto] gap-4 p-4 px-8 bg-muted/20 text-[10px] font-black uppercase text-muted-foreground tracking-widest border-b border-border/50">
+                                    <div>Personnel</div>
+                                    <div>Role</div>
+                                    <div>ID</div>
+                                    <div className="text-right">Action</div>
+                                </div>
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    {users.filter(u => u.shift?.id === shift.id).length === 0 ? (
+                                        <div className="p-10 text-center text-muted-foreground">
+                                            <Briefcase className="h-10 w-10 opacity-20 mx-auto mb-3" />
+                                            <p className="text-xs font-bold uppercase tracking-widest">Sector Unmanned</p>
+                                        </div>
+                                    ) : (
+                                        users.filter(u => u.shift?.id === shift.id).map(u => (
+                                            <div key={u.id} className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto] gap-4 p-4 px-8 border-b border-border/50 items-center hover:bg-muted/30 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <Avatar className="h-10 w-10 border border-border shadow-sm">
                                                         <AvatarImage src={u.profilePhoto} />
-                                                        <AvatarFallback className="bg-muted text-muted-foreground">
+                                                        <AvatarFallback className="bg-primary/5 text-primary font-black text-xs">
                                                             {u.username.charAt(0).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
                                                     <div>
-                                                        <p className="font-medium leading-none">{u.username}</p>
-                                                        <p className="text-xs text-muted-foreground mt-1">{u.email}</p>
+                                                        <p className="font-bold text-sm text-foreground leading-tight">{u.username}</p>
+                                                        <p className="text-[10px] font-medium text-muted-foreground">{u.email}</p>
                                                     </div>
                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="capitalize">
-                                                <span className="px-2 py-1 rounded-md bg-muted text-xs font-medium border">
-                                                    {u.role.replace('_', ' ')}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">
-                                                {u.employeeId || '-'}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Select onValueChange={(val) => handleAssignShift(u.id, val)} value="none">
-                                                    <SelectTrigger className="w-[180px] ml-auto">
-                                                        <SelectValue placeholder="Assign Shift" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="none">No Shift (Default)</SelectItem>
-                                                        {shifts.map(s => (
-                                                            <SelectItem key={s.id} value={s.id}>
-                                                                {s.name} ({s.startTime.slice(0, 5)})
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
+                                                <div className="hidden md:block">
+                                                    <span className="px-2.5 py-1 rounded-lg bg-muted border border-border/50 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                                                        {u.role.replace('_', ' ')}
+                                                    </span>
+                                                </div>
+                                                <div className="hidden md:block text-xs font-bold text-muted-foreground font-mono">
+                                                    {u.employeeId || '---'}
+                                                </div>
+                                                <div className="flex justify-end">
+                                                    <Select onValueChange={(val) => handleAssignShift(u.id, val)} value={u.shift?.id || "none"}>
+                                                        <SelectTrigger className="w-[160px] h-9 rounded-xl text-[10px] uppercase font-bold tracking-wider bg-background border-border">
+                                                            <SelectValue placeholder="Assign" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">Unassigned</SelectItem>
+                                                            {shifts.map(s => (
+                                                                <SelectItem key={s.id} value={s.id}>
+                                                                    {s.name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+
+                    {/* Unassigned */}
+                    <Card className="rounded-[32px] border border-border bg-card shadow-sm overflow-hidden hover:shadow-md transition-all opacity-80 hover:opacity-100">
+                        <CardHeader className="bg-muted/10 border-b border-border/50 flex flex-row items-center justify-between py-6 px-8">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center border border-border/50">
+                                    <UserCog className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-xl font-black uppercase tracking-tight text-foreground">Reserves / Unassigned</CardTitle>
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Default Protocol: 09:30 - 18:30</p>
+                                </div>
+                            </div>
+                            <div className="bg-muted text-foreground px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-border/50">
+                                {users.filter(u => !u.shift).length} Pending
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            {/* Reuse similar structure for list */}
+                            <div className="max-h-[400px] overflow-y-auto">
+                                {users.filter(u => !u.shift).map(u => (
+                                    <div key={u.id} className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr_auto] gap-4 p-4 px-8 border-b border-border/50 items-center hover:bg-muted/30 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <Avatar className="h-10 w-10 border border-border shadow-sm grayscale opacity-70">
+                                                <AvatarImage src={u.profilePhoto} />
+                                                <AvatarFallback className="bg-muted text-muted-foreground font-black text-xs">
+                                                    {u.username.charAt(0).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-bold text-sm text-foreground leading-tight">{u.username}</p>
+                                                <p className="text-[10px] font-medium text-muted-foreground">{u.email}</p>
+                                            </div>
+                                        </div>
+                                        <div className="hidden md:block">
+                                            <span className="px-2.5 py-1 rounded-lg bg-muted border border-border/50 text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                                                {u.role.replace('_', ' ')}
+                                            </span>
+                                        </div>
+                                        <div className="hidden md:block text-xs font-bold text-muted-foreground font-mono">
+                                            {u.employeeId || '---'}
+                                        </div>
+                                        <div className="flex justify-end">
+                                            <Select onValueChange={(val) => handleAssignShift(u.id, val)} value="none">
+                                                <SelectTrigger className="w-[160px] h-9 rounded-xl text-[10px] uppercase font-bold tracking-wider bg-background border-border">
+                                                    <SelectValue placeholder="DEPLOY" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">Unassigned</SelectItem>
+                                                    {shifts.map(s => (
+                                                        <SelectItem key={s.id} value={s.id}>
+                                                            {s.name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                ))}
+                                {users.filter(u => !u.shift).length === 0 && (
+                                    <div className="p-8 text-center text-muted-foreground text-xs font-bold uppercase tracking-widest">
+                                        All personnel assigned
+                                    </div>
                                 )}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            </div>        </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </div >
     );
 };
 

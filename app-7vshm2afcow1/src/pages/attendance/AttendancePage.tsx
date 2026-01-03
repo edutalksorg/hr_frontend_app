@@ -1,27 +1,27 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { apiService } from '@/services/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import {
   Clock,
-  MapPin,
   Search,
   LogOut,
   LogIn,
   CalendarDays,
-  Activity
+  Zap,
+  TrendingUp,
+  Shield,
+  Filter,
+  Loader2
 } from 'lucide-react';
 import type { User, Attendance, Leave, Holiday, AttendanceStats } from '@/types';
 import { cn, calculateDuration } from '@/lib/utils';
 import { toast } from 'sonner';
 
-// Helper to normalize dates to YYYY-MM-DD for easy comparison
 const toDateKey = (date: Date | string) => {
   const d = new Date(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -39,429 +39,436 @@ interface DayData {
   remark?: string;
 }
 
+// --- Subunits ---
+const LegendItem = ({ color, label }: any) => (
+  <div className="flex items-center gap-2">
+    <div className={cn("w-2.5 h-2.5 rounded-full shadow-sm", color)} />
+    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
+  </div>
+);
+
+const DataBar = ({ icon, label, value, status }: any) => (
+  <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:bg-white hover:shadow-md transition-all duration-300">
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-slate-400 group-hover:scale-110 group-hover:text-blue-600 transition-all duration-300 ring-1 ring-slate-100">
+        {icon}
+      </div>
+      <div>
+        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 group-hover:text-blue-500 transition-colors">{label}</p>
+        <p className="text-sm font-black text-slate-900 tracking-tight uppercase">{value}</p>
+      </div>
+    </div>
+    {status && (
+      <span className="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100">
+        Verified
+      </span>
+    )}
+  </div>
+);
+
 const AttendancePage: React.FC = () => {
   const { user: currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-
-  // Management State
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  // Data State
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
-
   const [isLoading, setIsLoading] = useState(false);
 
   const isManagementRole = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
 
-  // 1. Initial Data Fetch (Users for Admin, Holidays for All)
   useEffect(() => {
     const init = async () => {
       try {
         const h = await apiService.getHolidays();
         setHolidays(h);
-
         if (isManagementRole) {
           const u = await apiService.getAllUsers();
           setUsers(u);
-          setFilteredUsers(u);
-        } else if (currentUser) {
-          // If Employee, automatically "select" self to trigger data fetch
+        } else {
           setSelectedUser(currentUser);
         }
-      } catch (error) {
-        console.error('Failed to init:', error);
+      } catch (e) {
+        console.error('Pulse Init Error', e);
       }
     };
     init();
   }, [isManagementRole, currentUser]);
 
-  // 2. Fetch User Data (Attendance + Leaves) when selectedUser changes
   useEffect(() => {
     if (!selectedUser) return;
-
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch Attendance (History), Stats, and Leaves in parallel
-        // For Admin: fetch user's leaves. For Employee: fetch my leaves.
-        const leavesPromise = isManagementRole
-          ? apiService.getUserLeaves(selectedUser.id)
-          : apiService.getLeaves();
-
+        const lp = isManagementRole ? apiService.getUserLeaves(selectedUser.id) : apiService.getLeaves();
         const [att, st, lvs] = await Promise.all([
           apiService.getAttendance(selectedUser.id),
           apiService.getAttendanceStats(selectedUser.id),
-          leavesPromise
+          lp
         ]);
-
         setAttendanceHistory(att);
         setStats(st);
-        setLeaves(lvs.filter(l => l.status === 'approved')); // Only consider approved leaves
-      } catch (error) {
-        console.error('Failed to fetch user data:', error);
-        toast.error('Failed to load attendance data');
+        setLeaves(lvs.filter(l => l.status === 'approved'));
+      } catch (e) {
+        toast.error('Sync Error: Entity Intel Restricted');
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, [selectedUser, isManagementRole]);
 
-  // 3. Filter Users (Management Only)
-  useEffect(() => {
-    if (!isManagementRole) return;
-    const lowerQuery = searchQuery.toLowerCase();
-    const filtered = users.filter(u =>
-      (u.username?.toLowerCase().includes(lowerQuery) ||
-        u.email?.toLowerCase().includes(lowerQuery)) &&
-      ['employee', 'marketing', 'marketing_executive'].includes(u.role)
-    );
-    setFilteredUsers(filtered);
-  }, [searchQuery, users, isManagementRole]);
-
-  const employees = filteredUsers.filter(u => u.role === 'employee');
-  const marketingExecs = filteredUsers.filter(u => u.role === 'marketing' || u.role === 'marketing_executive');
-
-  // 4. Compute Calendar Map (The Core Logic)
   const calendarMap = useMemo(() => {
     const map = new Map<string, DayData>();
-
-    // Helper to set day data safely (priority logic)
     const setDay = (date: string, data: Partial<DayData>) => {
       const existing = map.get(date) || { date, status: 'Unknown' };
-      // Priority: Holiday > Sick Leave > Leave > Present/Late > Absent
-      // Use existing status if it's higher priority? 
-      // Actually, we'll process lists in order of priority:
-      // 1. Initialize all past 60 days as Absent/Weekend?
-      // No, let's just populate from sources.
       map.set(date, { ...existing, ...data });
     };
 
-    // A. Process Attendance Records (includes Present, Late, Absent inferred by backend 60days)
     attendanceHistory.forEach(att => {
       const k = toDateKey(att.date || new Date().toISOString());
-      // Backend 'status' might be 'present', 'late', 'absent', 'holiday'
-      // Map backend status to our DayStatus
       let s: DayStatus = 'Present';
       if (att.status === 'late') s = 'Late';
       if (att.status === 'absent') s = 'Absent';
       if (att.status === 'holiday') s = 'Holiday';
-
-      setDay(k, {
-        status: s,
-        checkIn: att.loginTime,
-        checkOut: att.logoutTime,
-        ipAddress: 'Recorded', // We don't have IP in the simplified Attendance list, only in detailed record
-        // Wait, apiService.getAttendance maps fields. we might not have IP in the list.
-        // If needed, we'd need to fetch detailed record on click.
-        // But let's store what we have.
-      });
+      setDay(k, { status: s, checkIn: att.loginTime, checkOut: att.logoutTime });
     });
 
-    // B. Process Leaves (Override Absent/Present if approved leave)
     leaves.forEach(l => {
-      // Expand date range
       let curr = new Date(l.startDate);
-      const end = new Date(l.endDate);
-      while (curr <= end) {
-        const k = toDateKey(curr);
-        const type = l.type === 'sick' ? 'Sick Leave' : 'Leave';
-        setDay(k, { status: type, remark: l.reason });
+      while (curr <= new Date(l.endDate)) {
+        setDay(toDateKey(curr), { status: l.type === 'sick' ? 'Sick Leave' : 'Leave', remark: l.reason });
         curr.setDate(curr.getDate() + 1);
       }
     });
 
-    // C. Process Holidays (Highest Priority)
-    holidays.forEach(h => {
-      const k = toDateKey(h.date);
-      setDay(k, { status: 'Holiday', remark: h.name });
-    });
-
+    holidays.forEach(h => setDay(toDateKey(h.date), { status: 'Holiday', remark: h.name }));
     return map;
   }, [attendanceHistory, leaves, holidays]);
 
   const getDayStatus = (date: Date): DayData => {
     const k = toDateKey(date);
-
-    // Check Future
     if (date > new Date()) return { date: k, status: 'Future' };
-
-    // Check Map
-    if (calendarMap.has(k)) {
-      return calendarMap.get(k)!;
-    }
-
-    // Default Fallback for past dates with no data: 'Absent' (if weekday) or 'Weekend'
-    const day = date.getDay();
-    if (day === 0) return { date: k, status: 'Weekend' }; // Sunday
-
-    return { date: k, status: 'Absent', checkIn: '--:--', checkOut: '--:--' };
+    if (calendarMap.has(k)) return calendarMap.get(k)!;
+    return { date: k, status: date.getDay() === 0 ? 'Weekend' : 'Absent', checkIn: '--:--', checkOut: '--:--' };
   };
 
-  // 5. Calendar Modifiers
   const modifiers = {
-    present: (date: Date) => getDayStatus(date).status === 'Present',
-    late: (date: Date) => getDayStatus(date).status === 'Late',
-    absent: (date: Date) => getDayStatus(date).status === 'Absent',
-    leave: (date: Date) => getDayStatus(date).status === 'Leave',
-    sick: (date: Date) => getDayStatus(date).status === 'Sick Leave',
-    holiday: (date: Date) => getDayStatus(date).status === 'Holiday' || getDayStatus(date).status === 'Weekend',
+    present: (d: Date) => getDayStatus(d).status === 'Present',
+    late: (d: Date) => getDayStatus(d).status === 'Late',
+    absent: (d: Date) => getDayStatus(d).status === 'Absent',
+    leave: (d: Date) => ['Leave', 'Sick Leave'].includes(getDayStatus(d).status),
+    holiday: (d: Date) => ['Holiday', 'Weekend'].includes(getDayStatus(d).status),
   };
 
   const modifiersClassNames = {
-    present: 'bg-emerald-100 text-emerald-900 font-bold hover:bg-emerald-200',
-    late: 'bg-amber-100 text-amber-900 font-bold hover:bg-amber-200',
-    absent: 'bg-red-50 text-red-900 font-bold hover:bg-red-100',
-    leave: 'bg-blue-100 text-blue-900 font-bold hover:bg-blue-200',
-    sick: 'bg-purple-100 text-purple-900 font-bold hover:bg-purple-200',
-    holiday: 'bg-gray-100 text-gray-500 font-medium',
+    present: 'bg-emerald-500 text-white font-bold hover:bg-emerald-600 rounded-lg shadow-md shadow-emerald-500/20',
+    late: 'bg-amber-500 text-white font-bold hover:bg-amber-600 rounded-lg shadow-md shadow-amber-500/20',
+    absent: 'bg-red-50 text-red-400 font-bold hover:bg-red-100 rounded-lg',
+    leave: 'bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md shadow-indigo-500/20',
+    holiday: 'text-slate-300 font-medium',
   };
 
-  // 6. Selected Day Data (for display)
+  const [searchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status');
+  const [allTodayAttendance, setAllTodayAttendance] = useState<Attendance[]>([]);
+
+  useEffect(() => {
+    if (statusFilter === 'present' && isManagementRole) {
+      apiService.getAllAttendance().then(data => {
+        const today = new Date().toDateString();
+        setAllTodayAttendance(data.filter(a => a.loginTime && new Date(a.loginTime).toDateString() === today));
+      });
+    }
+  }, [statusFilter, isManagementRole]);
+
   const selectedDayData = selectedDate ? getDayStatus(selectedDate) : null;
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = (u.username?.toLowerCase()?.includes(searchQuery.toLowerCase()) || u.email?.toLowerCase()?.includes(searchQuery.toLowerCase()));
 
-  // Render Component
+    if (statusFilter === 'present') {
+      const isPresentToday = allTodayAttendance.some(a => a.userId === u.id);
+      return matchesSearch && isPresentToday;
+    }
+    return matchesSearch;
+  });
+
   return (
-    <div className="space-y-6 container mx-auto p-6 max-w-7xl h-[calc(100vh-100px)] flex flex-col">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isManagementRole ? 'Attendance Management' : 'My Attendance'}
-          </h1>
-          <p className="text-muted-foreground">
-            {isManagementRole
-              ? 'Monitor employee attendance and track daily activities.'
-              : 'View your attendance history, leaves, and statistics.'}
-          </p>
-        </div>
+    <div className="min-h-screen bg-background p-6 lg:p-10 font-sans text-slate-900 selection:bg-sky-500/30 selection:text-sky-900">
+      <div className="max-w-[1600px] mx-auto space-y-8">
 
-        {/* Stats for Employee View */}
-        {!isManagementRole && stats && (
-          <div className="hidden md:flex gap-4">
-            <Badge variant="outline" className="px-3 py-1 border-emerald-200 bg-emerald-50 text-emerald-700">
-              Present: {stats.presentDays}
-            </Badge>
-            <Badge variant="outline" className="px-3 py-1 border-amber-200 bg-amber-50 text-amber-700">
-              Late: {stats.lateDays}
-            </Badge>
-            <Badge variant="outline" className="px-3 py-1 border-blue-200 bg-blue-50 text-blue-700">
-              Rate: {Math.round(stats.attendanceRate)}%
-            </Badge>
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 flex-1 min-h-0">
-        {/* LEFT COLUMN: Calendar & Day Details */}
-        <div className="xl:col-span-8 flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
-            {/* Calendar Card */}
-            <Card className="glass-card shadow-elegant flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5" />
-                  Attendance Calendar
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1 flex justify-center p-4">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  disabled={(date) => date > new Date()}
-                  modifiers={modifiers}
-                  modifiersClassNames={modifiersClassNames}
-                  className="rounded-md border bg-background p-4 w-full max-w-[400px]"
-                />
-              </CardContent>
-              <div className="p-4 border-t bg-muted/20 text-xs flex flex-wrap gap-3 justify-center">
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-300"></div> Present</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-amber-100 border border-amber-300"></div> Late</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-100 border border-red-300"></div> Absent</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-blue-100 border border-blue-300"></div> Leave</div>
-                <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-purple-100 border border-purple-300"></div> Sick</div>
+        {/* 📡 Header Section */}
+        <header className="relative overflow-hidden rounded-[40px] bg-white border border-slate-100 shadow-sm p-8 flex flex-col md:flex-row justify-between items-end gap-8">
+          <div className="relative z-10 flex items-center gap-6">
+            <div className="h-20 w-20 bg-sky-500 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/20 ring-4 ring-sky-50 transform hover:scale-105 transition-transform duration-300">
+              <Clock className="h-10 w-10 text-white" strokeWidth={2} />
+            </div>
+            <div>
+              <h1 className="text-4xl lg:text-5xl font-black text-slate-900 tracking-tight uppercase leading-none">
+                Attendance <span className="text-sky-500">Hub</span>
+              </h1>
+              <div className="flex items-center gap-3 pt-3">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]" />
+                <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em] opacity-90">System Operational • Pulse v2.4</p>
               </div>
-            </Card>
+            </div>
+          </div>
 
-            {/* Day Details Card */}
-            <Card className="glass-card shadow-elegant flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5" />
-                  Daily Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1">
+          {stats && (
+            <div className="flex gap-4 relative z-10">
+              <div className="group flex flex-col items-center justify-center p-6 bg-slate-50 hover:bg-white hover:shadow-lg rounded-2xl border border-slate-100 transition-all duration-300 min-w-[140px]">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-blue-500 transition-colors">Consistency</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-slate-900 tracking-tight">{Math.round(stats.attendanceRate)}</span>
+                  <span className="text-sm font-bold text-slate-400">%</span>
+                </div>
+              </div>
+              <div className="group flex flex-col items-center justify-center p-6 bg-blue-600 rounded-2xl shadow-xl shadow-blue-500/20 border border-blue-500/20 min-w-[140px] transform hover:-translate-y-1 transition-transform">
+                <p className="text-[10px] font-black text-blue-100 uppercase tracking-widest mb-1">Present</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-white tracking-tight">{stats.presentDays}</span>
+                  <span className="text-sm font-bold text-blue-200">Days</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </header>
+
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 relative">
+
+          {/* 🗺️ Main Content Column */}
+          <div className="xl:col-span-8 space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+              {/* 📅 Calendar Card */}
+              <div className="premium-card p-8 rounded-[40px] flex flex-col h-full hover:shadow-xl hover:-translate-y-1">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Schedule</h3>
+                    <p className="text-xl font-bold text-slate-900 tracking-tight">Active Calendar</p>
+                  </div>
+                  <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                    <CalendarDays className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="flex-1 flex justify-center items-center w-full">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    disabled={(d) => d > new Date()}
+                    modifiers={modifiers}
+                    modifiersClassNames={modifiersClassNames}
+                    className="p-0 w-full [&_.rdp-day_button]:!w-9 [&_.rdp-day_button]:!h-9 [&_.rdp-head_cell]:text-slate-400 [&_.rdp-head_cell]:font-medium"
+                  />
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-2 gap-3 justify-items-start">
+                  <LegendItem color="bg-emerald-500" label="Present" />
+                  <LegendItem color="bg-amber-500" label="Late" />
+                  <LegendItem color="bg-indigo-600" label="Leave" />
+                  <LegendItem color="bg-red-200" label="Absent" />
+                </div>
+              </div>
+
+              {/* 📊 Data Intel Card */}
+              <div className="premium-card p-8 rounded-[40px] flex flex-col h-full hover:shadow-xl hover:-translate-y-1">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity duration-500" />
+
+                <div className="flex items-center justify-between mb-6 relative z-10">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Analytics</h3>
+                    <p className="text-xl font-bold text-slate-900 tracking-tight">Daily Record</p>
+                  </div>
+                  <div className="h-10 w-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 ring-1 ring-slate-100">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                </div>
+
                 {isLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <div className="flex-1 flex items-center justify-center text-blue-600">
+                    <Loader2 className="h-10 w-10 animate-spin" />
                   </div>
-                ) : !selectedDate || !selectedDayData ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                    <CalendarDays className="h-12 w-12 mb-4 opacity-20" />
-                    <p>Select a date to view details</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold">
-                        {selectedDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                      </h3>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "px-3 py-1 text-sm font-medium",
-                          selectedDayData.status === 'Present' && "bg-emerald-100 text-emerald-800 border-emerald-200",
-                          selectedDayData.status === 'Absent' && "bg-red-100 text-red-800 border-red-200",
-                          selectedDayData.status === 'Late' && "bg-amber-100 text-amber-800 border-amber-200",
-                          selectedDayData.status === 'Leave' && "bg-blue-100 text-blue-800 border-blue-200",
-                          selectedDayData.status === 'Sick Leave' && "bg-purple-100 text-purple-800 border-purple-200",
-                          selectedDayData.status === 'Holiday' && "bg-gray-100 text-gray-800 border-gray-200",
-                        )}
-                      >
-                        {selectedDayData.status}
-                      </Badge>
+                ) : selectedDate && selectedDayData ? (
+                  <div className="space-y-6 relative z-10">
+                    <div className="bg-slate-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group/card">
+                      {/* Keep this dark card as a high-contrast element, it looks good in light mode too */}
+                      <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4 group-hover/card:scale-110 transition-transform duration-500">
+                        <Clock className="w-24 h-24" />
+                      </div>
+                      <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1">Selected Date</p>
+                      <h4 className="text-2xl font-black tracking-tight uppercase">
+                        {selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                      </h4>
                     </div>
 
-                    <Separator />
-
-                    {/* Check In / Out / Duration (UPDATED) */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100">
-                        <div className="flex items-center gap-2 mb-2 text-emerald-700">
-                          <LogIn className="h-4 w-4" />
-                          <span className="font-medium text-sm">Check In</span>
-                        </div>
-                        <p className="text-2xl font-bold text-emerald-900">
-                          {selectedDayData.checkIn ? new Date(selectedDayData.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                        </p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600/70">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate max-w-[120px]">{selectedDayData.ipAddress || 'N/A'}</span>
-                        </div>
-                      </div>
-
-                      <div className="p-4 rounded-lg bg-orange-50/50 border border-orange-100">
-                        <div className="flex items-center gap-2 mb-2 text-orange-700">
-                          <LogOut className="h-4 w-4" />
-                          <span className="font-medium text-sm">Check Out</span>
-                        </div>
-                        <p className="text-2xl font-bold text-orange-900">
-                          {selectedDayData.checkOut ? new Date(selectedDayData.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                        </p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-orange-600/70">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate max-w-[120px]">{selectedDayData.logoutIpAddress || 'N/A'}</span>
-                        </div>
-                      </div>
-
-                      <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-100">
-                        <div className="flex items-center gap-2 mb-2 text-blue-700">
-                          <Clock className="h-4 w-4" />
-                          <span className="font-medium text-sm">Working Hours</span>
-                        </div>
-                        <p className="text-2xl font-bold text-blue-900">
-                          {(selectedDayData.checkIn && selectedDayData.checkOut)
-                            ? calculateDuration(selectedDayData.checkIn, selectedDayData.checkOut)
-                            : '--'}
-                        </p>
-                        <div className="flex items-center gap-1 mt-1 text-xs text-blue-600/70">
-                          <span className="font-medium">Total Duration</span>
-                        </div>
-                      </div>
+                    <div className="space-y-3">
+                      <DataBar
+                        icon={<LogIn className="w-5 h-5 text-emerald-600" />}
+                        label="Check In"
+                        value={selectedDayData.checkIn ? new Date(selectedDayData.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                        status={['Present', 'Late'].includes(selectedDayData.status)}
+                      />
+                      <DataBar
+                        icon={<LogOut className="w-5 h-5 text-amber-600" />}
+                        label="Check Out"
+                        value={selectedDayData.checkOut ? new Date(selectedDayData.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                      />
+                      <DataBar
+                        icon={<Clock className="w-5 h-5 text-blue-600" />}
+                        label="Total Hours"
+                        value={selectedDayData.checkIn && selectedDayData.checkOut ? calculateDuration(selectedDayData.checkIn, selectedDayData.checkOut) : '0h 0m'}
+                      />
                     </div>
 
-                    {/* Remarks / Notes */}
-                    {(selectedDayData.remark || selectedDayData.status === 'Holiday' || selectedDayData.status.includes('Leave')) && (
-                      <div className="p-4 rounded-lg bg-muted/30 border">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Remarks</p>
-                        <p className="text-sm">
-                          {selectedDayData.remark || (selectedDayData.status === 'Holiday' ? 'Office Holiday' : selectedDayData.status === 'Weekend' ? 'Weekend' : 'No remarks.')}
-                        </p>
+                    {selectedDayData.remark && (
+                      <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 text-slate-700 animate-in fade-in slide-in-from-bottom-2">
+                        <Zap className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-0.5">Note</p>
+                          <p className="text-sm font-medium leading-snug">{selectedDayData.remark}</p>
+                        </div>
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-slate-300 gap-4">
+                    <Shield className="h-12 w-12 opacity-50" />
+                    <p className="text-xs font-bold uppercase tracking-widest text-center opacity-70">Select a date to view logs</p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+            </div>
 
-        {/* RIGHT COLUMN: User List (Only for Management) */}
-        {isManagementRole && (
-          <div className="xl:col-span-4 flex flex-col h-full gap-4">
-            <Card className="glass-card shadow-elegant h-full flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Employees</CardTitle>
-                <div className="relative mt-2">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search employees..."
-                    className="pl-9"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
+            {/* 📈 Velocity/Stats Visualizer */}
+            <div className="bg-white rounded-[40px] p-8 relative overflow-hidden border border-slate-100 shadow-sm group hover:shadow-xl transition-all">
+              {/* Changed from dark slate-900 to white */}
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-sky-50 rounded-full blur-[120px] -mr-64 -mt-64 pointer-events-none transition-all duration-1000 group-hover:bg-sky-100" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Operational <span className="text-sky-500">Velocity</span></h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Efficiency Metrics • 30 Day Cycle</p>
+                  </div>
+                  <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wide">On Track</span>
+                  </div>
                 </div>
-              </CardHeader>
-              <CardContent className="flex-1 min-h-0 p-0">
-                <ScrollArea className="h-[calc(100vh-320px)]">
-                  <div className="p-4 space-y-6">
-                    {/* Employees Group */}
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                        Employees <Badge variant="secondary" className="text-[10px] py-0">{employees.length}</Badge>
-                      </h3>
-                      {employees.map(u => (
-                        <div key={u.id} onClick={() => setSelectedUser(u)}
-                          className={cn("flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all border",
-                            selectedUser?.id === u.id ? "bg-primary/10 border-primary" : "hover:bg-accent border-transparent")}>
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={u.profilePhoto} />
-                            <AvatarFallback>{u.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{u.username}</p>
-                            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                          </div>
-                        </div>
-                      ))}
+
+                <div className="h-48 flex items-end gap-2 sm:gap-4 px-2">
+                  {[40, 60, 45, 90, 65, 80, 55, 75, 40, 85, 60, 95].map((h, i) => (
+                    <div key={i} className="flex-1 group/bar relative cursor-pointer">
+                      <div
+                        style={{ height: `${h}%` }}
+                        className="w-full bg-gradient-to-t from-sky-400 to-blue-500 rounded-t-lg group-hover/bar:from-sky-500 group-hover/bar:to-blue-600 transition-all duration-300 shadow-sm"
+                      />
+                      <div className="absolute -top-10 left-1/2 -translate-x-1/2 opacity-0 group-hover/bar:opacity-100 transition-all bg-slate-900 text-white px-3 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap shadow-xl pointer-events-none transform translate-y-2 group-hover/bar:translate-y-0">
+                        {(h / 10).toFixed(1)} Hrs
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
 
-                    <Separator />
-
-                    {/* Marketing Group */}
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                        Marketing <Badge variant="secondary" className="text-[10px] py-0">{marketingExecs.length}</Badge>
-                      </h3>
-                      {marketingExecs.map(u => (
-                        <div key={u.id} onClick={() => setSelectedUser(u)}
-                          className={cn("flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all border",
-                            selectedUser?.id === u.id ? "bg-primary/10 border-primary" : "hover:bg-accent border-transparent")}>
-                          <Avatar className="h-9 w-9">
-                            <AvatarImage src={u.profilePhoto} />
-                            <AvatarFallback>{u.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{u.username}</p>
-                            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
-                          </div>
-                        </div>
-                      ))}
+          {/* 👥 Sidebar / Employee Grid */}
+          <div className="xl:col-span-4">
+            {isManagementRole ? (
+              <aside className="bg-white border border-slate-100 rounded-[40px] overflow-hidden flex flex-col shadow-sm ring-1 ring-slate-50 xl:sticky xl:top-8 h-[600px] xl:h-[calc(100vh-3rem)]">
+                <div className="p-6 border-b border-slate-100 bg-slate-50/50 shrink-0">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Directory</h3>
+                      <p className="text-xl font-bold text-slate-900 tracking-tight">Personnel Grid</p>
+                    </div>
+                    <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center ring-1 ring-slate-100 shadow-sm">
+                      <Filter className="h-4 w-4 text-slate-400" />
                     </div>
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+
+                  <div className="relative group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                    <Input
+                      placeholder="Find employee..."
+                      className="h-12 pl-11 bg-white border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-blue-400 transition-all text-sm font-medium"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-hidden relative w-full">
+                  <ScrollArea className="h-full w-full">
+                    <div className="p-4 space-y-3 min-h-full">
+                      {filteredUsers.map(u => (
+                        <button
+                          key={u.id}
+                          onClick={() => setSelectedUser(u)}
+                          title={`${u.username} • ${String(u.role || '').replace('_', ' ')}`}
+                          className={cn(
+                            "w-full p-3 rounded-2xl flex items-center gap-4 transition-all duration-300 border group relative overflow-hidden shrink-0",
+                            selectedUser?.id === u.id
+                              ? "bg-sky-50 border-sky-100 shadow-sm translate-x-1"
+                              : "bg-white border-transparent hover:bg-slate-50 hover:border-slate-100"
+                          )}
+                        >
+                          <div className="relative shrink-0">
+                            <Avatar className="h-12 w-12 rounded-xl ring-2 ring-slate-100 group-hover:ring-sky-100 transition-all">
+                              <AvatarImage src={u.profilePhoto} className="object-cover" />
+                              <AvatarFallback className="bg-slate-100 text-slate-500 font-bold text-sm">
+                                {u.username?.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+
+                          <div className="flex-1 min-w-0 text-left overflow-hidden">
+                            <p className={cn(
+                              "font-bold text-sm truncate transition-colors pr-2",
+                              selectedUser?.id === u.id ? "text-sky-700" : "text-slate-900"
+                            )}>
+                              {u.username}
+                            </p>
+                            <p className={cn(
+                              "text-[10px] uppercase tracking-wider font-bold mt-0.5 truncate",
+                              selectedUser?.id === u.id ? "text-sky-500" : "text-slate-400"
+                            )}>
+                              {String(u.role || '').replace('_', ' ')}
+                            </p>
+                          </div>
+
+                          {selectedUser?.id === u.id && (
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-in fade-in slide-in-from-right-4 duration-300">
+                              <div className="h-8 w-8 bg-sky-500 rounded-lg flex items-center justify-center shadow-lg transform rotate-3">
+                                <Zap className="h-4 w-4 text-white fill-current" />
+                              </div>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </aside>
+            ) : (
+              <div className="bg-gradient-to-br from-sky-400 to-blue-600 rounded-[40px] p-8 text-white shadow-xl relative overflow-hidden h-full min-h-[300px] flex flex-col justify-center ring-1 ring-white/20">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                <div className="relative z-10">
+                  <Shield className="h-14 w-14 text-white/90 mb-6" />
+                  <h3 className="text-2xl font-black uppercase mb-4">Secure Access</h3>
+                  <p className="text-white/90 font-medium leading-relaxed">
+                    Your attendance helps maintain the operational heartbeat. Ensure check-ins are timely for accurate logging.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

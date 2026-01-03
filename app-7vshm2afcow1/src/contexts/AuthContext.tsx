@@ -7,8 +7,8 @@ import { toast } from 'sonner';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, username: string, password: string, role: string) => Promise<void>;
+  login: (email: string, password: string, latitude?: number, longitude?: number) => Promise<void>;
+  register: (email: string, username: string, password: string, role: string, branchId?: string) => Promise<void>;
   logout: () => void;
   updateUser: (updates: Partial<User>) => Promise<void>;
 }
@@ -22,17 +22,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log('🔐 AuthContext: Initializing authentication...');
       const token = localStorage.getItem('token');
       if (!token) {
+        console.log('⚠️ AuthContext: No token found');
         setLoading(false);
         return;
       }
 
       try {
+        console.log('🔄 AuthContext: Fetching current user...');
         const currentUser = await apiService.getCurrentUser();
+        console.log('✅ AuthContext: User authenticated:', currentUser.username, 'Role:', currentUser.role);
         setUser(currentUser);
       } catch (error) {
-        console.warn("Auth check failed, clearing session.");
+        console.warn("❌ AuthContext: Auth check failed, clearing session.");
         apiService.logout();
         setUser(null);
       } finally {
@@ -51,9 +55,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [user, navigate]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, latitude?: number, longitude?: number) => {
     try {
-      const response = await apiService.login(email, password);
+      const response = await apiService.login(email, password, latitude, longitude);
       setUser(response.user ?? null);
       toast.success('Login successful!');
       if (response.user?.isBlocked) {
@@ -67,9 +71,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const register = async (email: string, username: string, password: string, role: string) => {
+  const register = async (email: string, username: string, password: string, role: string, branchId?: string) => {
     try {
-      const response = await apiService.register(email, username, password, role);
+      const response = await apiService.register(email, username, password, role, branchId);
 
       if (!response.user) {
         toast.success('Registration successful! Please wait for admin approval.');

@@ -20,6 +20,23 @@ export interface User {
   createdAt: string;
   employeeId?: string;
   shift?: Shift;
+  branch?: Branch;
+  geoRestrictionEnabled?: boolean;
+  officeLatitude?: number;
+  officeLongitude?: number;
+  geoRadius?: number;
+  joiningDate?: string;
+}
+
+export interface Branch {
+  id: string;
+  name: string;
+  code: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  geoRadius?: number;
+  createdAt?: string;
 }
 
 export interface AuthResponse {
@@ -157,6 +174,7 @@ export interface DashboardStats {
   totalTeams: number;
   technicalTeamCount: number;
   totalAdmins: number;
+  totalManagers: number;
 }
 
 export interface AttendanceStats {
@@ -233,4 +251,17 @@ export interface TicketComment {
   author: User;
   content: string;
   createdAt: string;
+}
+
+export interface WorkUpdate {
+  id: string;
+  user: User;
+  role: string;
+  branch?: Branch;
+  date: string;
+  shift?: Shift;
+  workDescription: string;
+  createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
 }

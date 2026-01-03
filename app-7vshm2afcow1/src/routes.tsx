@@ -1,33 +1,57 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, lazy, Suspense } from 'react';
 import ProtectedRoute from './components/layout/ProtectedRoute';
-import WelcomePage from './pages/WelcomePage';
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import ResetPasswordPage from './pages/auth/ResetPasswordPage';
-import BlockedPage from './pages/auth/BlockedPage';
-import DashboardPage from './pages/dashboard/DashboardPage';
-import AttendancePage from './pages/attendance/AttendancePage';
-import LeavePage from './pages/leave/LeavePage';
-import TeamsPage from './pages/teams/TeamsPage';
-import TeamDetailPage from './pages/teams/TeamDetailPage';
-import DocumentsPage from './pages/documents/DocumentsPage';
-import NotesPage from './pages/notes/NotesPage';
-import HolidaysPage from './pages/holidays/HolidaysPage';
-import PayrollPage from './pages/payroll/PayrollPage';
-import ProfilePage from './pages/profile/ProfilePage';
+import { Loader2 } from 'lucide-react';
+
+// Lazy load all pages for better performance on slow networks (2G - 5G)
+const WelcomePage = lazy(() => import('./pages/WelcomePage'));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
+const BlockedPage = lazy(() => import('./pages/auth/BlockedPage'));
+const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
+const AttendancePage = lazy(() => import('./pages/attendance/AttendancePage'));
+const LeavePage = lazy(() => import('./pages/leave/LeavePage'));
+const TeamsPage = lazy(() => import('./pages/teams/TeamsPage'));
+const TeamDetailPage = lazy(() => import('./pages/teams/TeamDetailPage'));
+const DocumentsPage = lazy(() => import('./pages/documents/DocumentsPage'));
+const NotesPage = lazy(() => import('./pages/notes/NotesPage'));
+const HolidaysPage = lazy(() => import('./pages/holidays/HolidaysPage'));
+const PayrollPage = lazy(() => import('./pages/payroll/PayrollPage'));
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage'));
 import AdminPage from './pages/admin/AdminPage';
-import SettingsPage from './pages/settings/SettingsPage';
-import NavigationPage from './pages/navigation/NavigationPage';
-import EmployeesListPage from './pages/employees/EmployeesListPage';
-import EmployeeHistoryPage from './pages/employees/EmployeeHistoryPage';
-import PresentEmployeesPage from './pages/attendance/PresentEmployeesPage';
-import NotificationsPage from './pages/notifications/NotificationsPage';
-import SendNotificationPage from './pages/admin/SendNotificationPage';
-import ShiftManagementPage from './pages/shifts/ShiftManagementPage';
-import NotificationManagementPage from './pages/notifications/NotificationManagementPage';
-import PerformancePage from './pages/performance/PerformancePage';
-import HelpdeskPage from './pages/helpdesk/HelpdeskPage';
+import GeolocationPage from './pages/admin/GeolocationPage';
+const AdminPageDebug = lazy(() => import('./pages/admin/AdminPageDebug'));
+const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
+const NavigationPage = lazy(() => import('./pages/navigation/NavigationPage'));
+const EmployeesListPage = lazy(() => import('./pages/employees/EmployeesListPage'));
+const EmployeeHistoryPage = lazy(() => import('./pages/employees/EmployeeHistoryPage'));
+const PresentEmployeesPage = lazy(() => import('./pages/attendance/PresentEmployeesPage'));
+const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage'));
+const SendNotificationPage = lazy(() => import('./pages/admin/SendNotificationPage'));
+const ShiftManagementPage = lazy(() => import('./pages/shifts/ShiftManagementPage'));
+const NotificationManagementPage = lazy(() => import('./pages/notifications/NotificationManagementPage'));
+const PerformancePage = lazy(() => import('./pages/performance/PerformancePage'));
+const HelpdeskPage = lazy(() => import('./pages/helpdesk/HelpdeskPage'));
+const BranchManagementPage = lazy(() => import('./pages/admin/BranchManagementPage'));
+const MyWorkUpdatesPage = lazy(() => import('./pages/work-updates/MyWorkUpdatesPage'));
+const WorkUpdatesDashboardPage = lazy(() => import('./pages/work-updates/WorkUpdatesDashboardPage'));
+
+// A sleek loading component for code-splitting transitions
+const PageLoader = () => (
+  <div className="flex h-[60vh] w-full items-center justify-center">
+    <div className="flex flex-col items-center gap-4">
+      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <p className="text-sm font-medium animate-pulse text-muted-foreground">Optimizing your connection...</p>
+    </div>
+  </div>
+);
+
+const withSuspense = (component: ReactNode) => (
+  <Suspense fallback={<PageLoader />}>
+    {component}
+  </Suspense>
+);
 
 interface RouteConfig {
   name: string;
@@ -40,37 +64,37 @@ const routes: RouteConfig[] = [
   {
     name: 'Welcome',
     path: '/welcome',
-    element: <WelcomePage />
+    element: withSuspense(<WelcomePage />)
   },
   {
     name: 'Login',
     path: '/login',
-    element: <LoginPage />
+    element: withSuspense(<LoginPage />)
   },
   {
     name: 'Register',
     path: '/register',
-    element: <RegisterPage />
+    element: withSuspense(<RegisterPage />)
   },
   {
     name: 'Forgot Password',
     path: '/forgot-password',
-    element: <ForgotPasswordPage />
+    element: withSuspense(<ForgotPasswordPage />)
   },
   {
     name: 'Reset Password',
     path: '/reset-password',
-    element: <ResetPasswordPage />
+    element: withSuspense(<ResetPasswordPage />)
   },
   {
     name: 'Blocked',
     path: '/blocked',
-    element: <BlockedPage />
+    element: withSuspense(<BlockedPage />)
   },
   {
     name: 'Dashboard',
     path: '/dashboard',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <DashboardPage />
       </ProtectedRoute>
@@ -79,7 +103,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Attendance',
     path: '/attendance',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <AttendancePage />
       </ProtectedRoute>
@@ -88,7 +112,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Leave',
     path: '/leave',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <LeavePage />
       </ProtectedRoute>
@@ -97,7 +121,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Teams',
     path: '/teams',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <TeamsPage />
       </ProtectedRoute>
@@ -106,7 +130,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Team Detail',
     path: '/teams/:id',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <TeamDetailPage />
       </ProtectedRoute>
@@ -115,7 +139,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Documents',
     path: '/documents',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <DocumentsPage />
       </ProtectedRoute>
@@ -124,7 +148,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Notes',
     path: '/notes',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <NotesPage />
       </ProtectedRoute>
@@ -133,7 +157,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Holidays',
     path: '/holidays',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <HolidaysPage />
       </ProtectedRoute>
@@ -142,7 +166,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Payroll',
     path: '/payroll',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee']}>
         <PayrollPage />
       </ProtectedRoute>
@@ -151,7 +175,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Profile',
     path: '/profile',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <ProfilePage />
       </ProtectedRoute>
@@ -167,9 +191,28 @@ const routes: RouteConfig[] = [
     )
   },
   {
+    name: 'Geolocation',
+    path: '/admin/geolocation',
+    element: (
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <GeolocationPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'Admin Debug',
+    path: '/admin/debug',
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <AdminPageDebug />
+      </ProtectedRoute>
+    ),
+    visible: false
+  },
+  {
     name: 'Settings',
     path: '/settings',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <SettingsPage />
       </ProtectedRoute>
@@ -178,7 +221,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Present Employees',
     path: '/attendance/present',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <PresentEmployeesPage />
       </ProtectedRoute>
@@ -188,7 +231,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Navigation',
     path: '/navigation',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'marketing']}>
         <NavigationPage />
       </ProtectedRoute>
@@ -197,7 +240,34 @@ const routes: RouteConfig[] = [
   {
     name: 'Employees List',
     path: '/employees',
-    element: (
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <EmployeesListPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'Admins',
+    path: '/admins',
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <EmployeesListPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'HR Team',
+    path: '/hr',
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <EmployeesListPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'Technical Team',
+    path: '/developers',
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <EmployeesListPage />
       </ProtectedRoute>
@@ -206,7 +276,17 @@ const routes: RouteConfig[] = [
   {
     name: 'Employee History',
     path: '/employees/:id/history',
-    element: (
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <EmployeeHistoryPage />
+      </ProtectedRoute>
+    ),
+    visible: false
+  },
+  {
+    name: 'Employee Attendance History',
+    path: '/attendance/employee/:employeeId',
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <EmployeeHistoryPage />
       </ProtectedRoute>
@@ -216,7 +296,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Shift Management',
     path: '/shifts',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <ShiftManagementPage />
       </ProtectedRoute>
@@ -225,7 +305,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Notification Settings',
     path: '/notification-settings',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <NotificationManagementPage />
       </ProtectedRoute>
@@ -234,7 +314,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Notifications',
     path: '/notifications',
-    element: (
+    element: withSuspense(
       <ProtectedRoute>
         <NotificationsPage />
       </ProtectedRoute>
@@ -243,7 +323,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Send Notification',
     path: '/admin/notifications/send',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
         <SendNotificationPage />
       </ProtectedRoute>
@@ -253,7 +333,7 @@ const routes: RouteConfig[] = [
   {
     name: 'Performance',
     path: '/performance',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee', 'marketing', 'marketing_executive']}>
         <PerformancePage />
       </ProtectedRoute>
@@ -262,9 +342,36 @@ const routes: RouteConfig[] = [
   {
     name: 'Helpdesk',
     path: '/helpdesk',
-    element: (
+    element: withSuspense(
       <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee', 'marketing', 'marketing_executive']}>
         <HelpdeskPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'Branches',
+    path: '/admin/branches',
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin']}>
+        <BranchManagementPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'My Work Updates',
+    path: '/work-updates/my',
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager', 'employee', 'marketing', 'marketing_executive']}>
+        <MyWorkUpdatesPage />
+      </ProtectedRoute>
+    )
+  },
+  {
+    name: 'Work Updates Dashboard',
+    path: '/work-updates/dashboard',
+    element: withSuspense(
+      <ProtectedRoute allowedRoles={['admin', 'hr', 'manager']}>
+        <WorkUpdatesDashboardPage />
       </ProtectedRoute>
     )
   }

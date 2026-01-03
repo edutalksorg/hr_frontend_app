@@ -105,6 +105,10 @@ const DocumentsPage: React.FC = () => {
   };
 
   const handleDelete = async (documentId: string) => {
+    if (!window.confirm('PROTOCOL ALERT: Are you sure you want to PERMANENTLY delete this document? This action cannot be undone.')) {
+      return;
+    }
+
     try {
       await apiService.deleteDocument(documentId);
       toast.success('Document deleted successfully');

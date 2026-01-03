@@ -21,7 +21,9 @@ import {
   PerformanceGoal,
   PerformanceReview,
   SupportTicket,
-  TicketComment
+  TicketComment,
+  Branch,
+  WorkUpdate
 } from '@/types';
 import { mockPayroll } from './mockData';
 
@@ -41,7 +43,7 @@ class ApiService {
   constructor() {
     this.client = axios.create({
       baseURL: API_BASE_URL,
-      timeout: 10000,
+      timeout: 15000, // Increased timeout for 2G/3G stability
       withCredentials: true,
       headers: {
         'Content-Type': 'application/json'
@@ -50,6 +52,38 @@ class ApiService {
 
     this.loadTokens();
     this.setupInterceptors();
+    this.setupRetryInterceptor();
+  }
+
+  private setupRetryInterceptor() {
+    this.client.interceptors.response.use(undefined, (err) => {
+      const config = err.config;
+      // If config does not exist or the retry option is not set, reject
+      if (!config || !config.retry) return Promise.reject(err);
+
+      // Set the variable for keeping track of the retry count
+      config.__retryCount = config.__retryCount || 0;
+
+      // Check if we've maxed out the total number of retries
+      if (config.__retryCount >= config.retry) {
+        return Promise.reject(err);
+      }
+
+      // Increase the retry count
+      config.__retryCount += 1;
+
+      // Create new promise to handle exponential backoff
+      const backoff = new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(true);
+        }, config.retryDelay || 1000);
+      });
+
+      // Return the promise in which recalls axios
+      return backoff.then(() => {
+        return this.client(config);
+      });
+    });
   }
 
   private loadTokens() {
@@ -104,11 +138,10 @@ class ApiService {
 
       if (isLoginRequest && status === 403) {
         const specificMessage = (error.response.data as any)?.message;
-        if (specificMessage && specificMessage.includes('blocked')) {
-          toast.error('Contact admin you are blocked');
+        if (specificMessage) {
+          toast.error(specificMessage);
           return;
         }
-        // Fallback for other 403s during login if any
         toast.error('Access denied');
         return;
       }
@@ -119,8 +152,9 @@ class ApiService {
           return;
         }
 
-        // Use specific message from backend if available, otherwise generic
+        const isLoginRequest = error.config?.url?.includes('/login');
         const specificMessage = (error.response.data as any)?.message;
+
         if (specificMessage && specificMessage !== 'Forbidden') {
           if (specificMessage.includes('approval is not completed')) {
             toast.success(specificMessage, {
@@ -132,7 +166,12 @@ class ApiService {
             toast.error(specificMessage);
           }
         } else {
-          toast.error('Access denied. You may not have permission for this action.');
+          // Fallback for login requests if message is missing
+          if (isLoginRequest) {
+            toast.error('Access Denied: Your account may be pending approval, blocked, or you are outside the allowed office premises.');
+          } else {
+            toast.error('Access denied. You may not have permission for this action.');
+          }
         }
         console.error('403 Forbidden:', error.config?.url, 'User role:', localStorage.getItem('currentUser'));
       } else if (status === 401) {
@@ -189,9 +228,9 @@ class ApiService {
     }
   }
 
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(email: string, password: string, latitude?: number, longitude?: number): Promise<AuthResponse> {
     const ipAddress = await this.getPublicIp();
-    const response = await this.client.post<any>('/api/v1/auth/login', { email, password, ipAddress });
+    const response = await this.client.post<any>('/api/v1/auth/login', { email, password, ipAddress, latitude, longitude });
 
     // If backend doesn't return tokens, propagate an empty AuthResponse
     if (!response?.data?.accessToken) {
@@ -230,7 +269,7 @@ class ApiService {
     await this.client.post('/api/v1/auth/change-password', { oldPassword, newPassword });
   }
 
-  async register(email: string, username: string, password: string, role: string): Promise<AuthResponse> {
+  async register(email: string, username: string, password: string, role: string, branchId?: string): Promise<AuthResponse> {
     // Backend expects: fullName, email, phone, password.
     // Frontend provides: email, username, password, role.
     // I will map username to fullName. Phone is missing, I'll send a placeholder or empty string.
@@ -240,7 +279,8 @@ class ApiService {
       email,
       password,
       phone: "", // Placeholder as it's required by backend DTO but not in frontend form
-      role: role
+      role: role,
+      branchId: branchId
     };
 
     const response = await this.client.post<any>('/api/v1/auth/register', registerRequest);
@@ -279,19 +319,25 @@ class ApiService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response = await this.client.get<any>('/api/v1/users/me');
-    const data = response.data;
+    const response = await this.client.get<any>('/api/v1/users/me', {
+      // @ts-ignore
+      retry: 2,
+      retryDelay: 1000
+    });
+    const data = response.data as any;
     return {
       ...data,
-      username: data.fullName || data.username,
-      role: data.role?.toLowerCase(),
+      id: String(data.id || ''),
+      username: String(data.fullName || data.username || 'System User'),
+      email: String(data.email || 'no-email@system.com'),
+      role: String(typeof data.role === 'string' ? data.role : (data.role?.name || String(data.role || ''))).toLowerCase(),
       isApproved: data.status === 'ACTIVE',
       isBlocked: data.status === 'BLOCKED'
-    };
+    } as User;
   }
 
   async getAttendance(userId: string): Promise<Attendance[]> {
-    const response = await this.client.get<any[]>(`/api/v1/attendance/history/60days/${userId}`);
+    const response = await this.client.get<any[]>(`/api/v1/attendance/${userId}`);
     // Map DTO to Attendance interface
     return response.data.map(dto => ({
       id: dto.id || `${dto.date}-${userId}`, // Use real ID if available, else fallback to composite
@@ -325,20 +371,17 @@ class ApiService {
     const response = await this.client.post<Attendance>('/api/v1/attendance/manual', data);
     return response.data;
   }
+  async checkIn(userId: string, latitude?: number, longitude?: number): Promise<Attendance> {
+    const params = new URLSearchParams();
+    if (latitude !== undefined) params.append('lat', latitude.toString());
+    if (longitude !== undefined) params.append('lng', longitude.toString());
 
-  async checkIn(userId: string): Promise<Attendance> {
-    const ip = await this.getPublicIp();
-    const response = await this.client.post<Attendance>(`/api/v1/attendance/login/${userId}`, null, {
-      params: { ip }
-    });
+    const response = await this.client.post<Attendance>(`/api/v1/attendance/login/${userId}?${params.toString()}`);
     return response.data;
   }
 
   async checkOut(attendanceId: string): Promise<Attendance> {
-    const ip = await this.getPublicIp();
-    const response = await this.client.post<Attendance>(`/api/v1/attendance/logout/${attendanceId}`, null, {
-      params: { ip }
-    });
+    const response = await this.client.post<Attendance>(`/api/v1/attendance/logout/${attendanceId}`);
     return response.data;
   }
 
@@ -368,8 +411,10 @@ class ApiService {
     return response.data;
   }
 
-  async getPendingLeaves(): Promise<Leave[]> {
-    const response = await this.client.get<Leave[]>('/api/v1/leave/pending');
+  async getPendingLeaves(branchId?: string): Promise<Leave[]> {
+    const response = await this.client.get<Leave[]>('/api/v1/leave/pending', {
+      params: { branchId }
+    });
     return response.data;
   }
 
@@ -628,14 +673,63 @@ class ApiService {
   }
 
   async getAllUsers(): Promise<User[]> {
-    const response = await this.client.get<any[]>('/api/v1/users/all');
-    return response.data.map(u => ({
-      ...u,
-      username: u.fullName || u.username,
-      role: u.role?.toLowerCase(),
-      isApproved: u.status === 'ACTIVE',
-      isBlocked: u.status === 'BLOCKED'
-    }));
+    try {
+      // Small TTL cache for all users to improve perceived speed on slow networks
+      /* Cache disabled to prevent stale data issues
+      const cacheKey = 'users_list_cache';
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { timestamp, data } = JSON.parse(cached);
+        if (Date.now() - timestamp < 60000) { // 1 minute cache
+          return data;
+        }
+      }
+      */
+
+      const response = await this.client.get<any[]>('/api/v1/users/all', {
+        // @ts-ignore - custom retry field
+        retry: 3,
+        retryDelay: 2000
+      });
+
+      if (!response.data || !Array.isArray(response.data)) {
+        console.warn('API Warning: Users list is not an array, returning empty list.', response.data);
+        return [];
+      }
+
+      const mapped = response.data.map((u: any) => ({
+        ...u,
+        id: String(u.id || ''),
+        username: String(u.fullName || u.username || 'System User'),
+        email: String(u.email || 'no-email@system.com'),
+        role: String(typeof u.role === 'string' ? u.role : (u.role?.name || String(u.role || ''))).toLowerCase(),
+        isApproved: u.status === 'ACTIVE',
+        isBlocked: u.status === 'BLOCKED'
+      }));
+
+      /*
+      localStorage.setItem(cacheKey, JSON.stringify({
+        timestamp: Date.now(),
+        data: mapped
+      }));
+      */
+
+      return mapped;
+    } catch (error) {
+      // On error, try to return expired cache if available
+      try {
+        const cached = localStorage.getItem('users_list_cache');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && Array.isArray(parsed.data)) {
+            return parsed.data;
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Failed to recover from cache:', cacheError);
+      }
+      throw error;
+    }
   }
 
   async blockUser(userId: string): Promise<User> {
@@ -650,17 +744,46 @@ class ApiService {
     return user;
   }
 
-  async approveUser(userId: string, role: string): Promise<User> {
-    const currentUser = await this.getCurrentUser();
-    const response = await this.client.post<User>(`/api/v1/users/approve/${userId}`, null, {
-      params: { role, approverId: currentUser.id }
-    });
+  async approveUser(userId: string): Promise<User> {
+    const response = await this.client.post<User>(`/api/v1/users/approve/${userId}`);
+    console.log('✅ Approved user response:', response.data);
     return response.data;
   }
 
-  async getDashboardStats(): Promise<DashboardStats> {
+  async deleteUser(userId: string): Promise<void> {
+    await this.client.delete(`/api/v1/users/delete/${userId}`);
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    const response = await this.client.get<any[]>(`/api/v1/users/role/${role}`);
+    return response.data.map(u => ({
+      ...u,
+      username: u.fullName || u.username,
+      role: u.role?.toLowerCase(),
+      isApproved: u.status === 'ACTIVE',
+      isBlocked: u.status === 'BLOCKED'
+    }));
+  }
+
+  async updateGeoRestriction(userId: string, data: { enabled: boolean, latitude: number, longitude: number, radius: number }): Promise<User> {
+    const response = await this.client.put<User>(`/api/v1/users/${userId}/geo-restriction`, data);
+    return response.data;
+  }
+
+  async updateGeoRestrictionBulk(userIds: string[], data: { enabled: boolean, latitude: number, longitude: number, radius: number }): Promise<void> {
+    await this.client.put('/api/v1/users/bulk/geo-restriction', { userIds, data });
+  }
+
+  async updateJoiningDate(userId: string, date: string): Promise<User> {
+    const response = await this.client.put<User>(`/api/v1/users/${userId}/joining-date`, { joiningDate: date });
+    return response.data;
+  }
+
+  async getDashboardStats(branchId?: string): Promise<DashboardStats> {
     try {
-      const response = await this.client.get<DashboardStats>('/api/v1/dashboard/stats');
+      const response = await this.client.get<DashboardStats>('/api/v1/dashboard/stats', {
+        params: { branchId }
+      });
       return response.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -674,9 +797,44 @@ class ApiService {
         pendingLeaves: 0,
         totalTeams: 0,
         technicalTeamCount: 0,
-        totalAdmins: 0
+        totalAdmins: 0,
+        totalManagers: 0
       };
     }
+  }
+
+  async submitWorkUpdate(description: string): Promise<WorkUpdate> {
+    const response = await this.client.post<WorkUpdate>('/api/v1/work-updates/today', { description });
+    return response.data;
+  }
+
+  async getMyTodayUpdate(): Promise<WorkUpdate | null> {
+    const response = await this.client.get<WorkUpdate>('/api/v1/work-updates/my/today');
+    return response.data;
+  }
+
+  async getMyWorkUpdates(): Promise<WorkUpdate[]> {
+    const response = await this.client.get<WorkUpdate[]>('/api/v1/work-updates/my/history');
+    return response.data;
+  }
+
+  async getAllWorkUpdates(filters?: {
+    userId?: string,
+    month?: number,
+    year?: number,
+    branchId?: string,
+    role?: string
+  }): Promise<WorkUpdate[]> {
+    const response = await this.client.get<WorkUpdate[]>('/api/v1/work-updates', { params: filters });
+    return response.data;
+  }
+
+  async deleteWorkUpdate(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/work-updates/${id}`);
+  }
+
+  async bulkDeleteWorkUpdates(ids: string[]): Promise<void> {
+    await this.client.delete('/api/v1/work-updates/bulk', { data: ids });
   }
 
   async updateProfile(_userId: string, updates: Partial<User>): Promise<User> {
@@ -695,9 +853,67 @@ class ApiService {
       });
     }
 
-    const user = await this.getCurrentUser();
-    localStorage.setItem('currentUser', JSON.stringify(user));
-    return user;
+    return await this.getCurrentUser();
+  }
+
+  // --- Branch Management ---
+  async getBranches(): Promise<Branch[]> {
+    const response = await this.client.get<Branch[]>('/api/v1/branches');
+    return response.data;
+  }
+
+  async getUnassignedUsers(): Promise<User[]> {
+    const response = await this.client.get<any[]>('/api/v1/branches/unassigned-users');
+    return response.data.map(u => ({
+      ...u,
+      username: u.fullName || u.username,
+      role: u.role?.toLowerCase(),
+      isApproved: u.status === 'ACTIVE',
+      isBlocked: u.status === 'BLOCKED'
+    }));
+  }
+
+  async assignUsersToBranch(branchId: string, userIds: string[]): Promise<void> {
+    await this.client.put(`/api/v1/branches/${branchId}/assign-users`, userIds);
+  }
+
+  async unassignUsersFromBranch(userIds: string[]): Promise<void> {
+    await this.client.put('/api/v1/branches/unassign-users', userIds);
+  }
+
+  async getBranch(id: string): Promise<Branch> {
+    const response = await this.client.get<Branch>(`/api/v1/branches/${id}`);
+    return response.data;
+  }
+
+  async createBranch(data: Partial<Branch>): Promise<Branch> {
+    const response = await this.client.post<Branch>(`/api/v1/branches`, data);
+    return response.data;
+  }
+
+  async updateBranch(id: string, data: Partial<Branch>): Promise<Branch> {
+    const response = await this.client.put<Branch>(`/api/v1/branches/${id}`, data);
+    return response.data;
+  }
+
+  async deleteBranch(id: string): Promise<void> {
+    await this.client.delete(`/api/v1/branches/${id}`);
+  }
+
+  async transferUserToBranch(userId: string, branchId: string): Promise<User> {
+    const response = await this.client.put<User>(`/api/v1/users/${userId}/branch/${branchId}`);
+    return response.data;
+  }
+
+  async getUsersByBranch(branchId: string): Promise<User[]> {
+    const response = await this.client.get<any[]>(`/api/v1/users/branch/${branchId}`);
+    return response.data.map(u => ({
+      ...u,
+      username: u.fullName || u.username,
+      role: u.role?.toLowerCase(),
+      isApproved: u.status === 'ACTIVE',
+      isBlocked: u.status === 'BLOCKED'
+    }));
   }
 
   async checkHealth(): Promise<boolean> {
