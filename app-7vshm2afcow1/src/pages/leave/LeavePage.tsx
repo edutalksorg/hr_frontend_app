@@ -5,12 +5,12 @@ import { apiService } from '@/services/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar, Plus, Check, X, Trash2 } from 'lucide-react';
+import { Calendar, Plus, Trash2 } from 'lucide-react';
 import type { Leave } from '@/types';
 import { toast } from 'sonner';
 import { BackButton } from '@/components/common/BackButton';
@@ -27,6 +27,9 @@ const LeavePage: React.FC = () => {
     endDate: '',
     reason: ''
   });
+
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
 
   const [searchParams] = useSearchParams();
 
@@ -181,6 +184,77 @@ const LeavePage: React.FC = () => {
         </Dialog>
       )}
 
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Review Leave Request</DialogTitle>
+            <DialogDescription>Review the details before taking action.</DialogDescription>
+          </DialogHeader>
+
+          {selectedLeave && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                {selectedLeave.userName ? (
+                  <Avatar>
+                    <AvatarImage src={selectedLeave.userProfilePhoto} />
+                    <AvatarFallback>{selectedLeave.userName.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-semibold">{selectedLeave.userName || 'Unknown User'}</h4>
+                  <p className="text-sm text-muted-foreground capitalize">{selectedLeave.type} Leave</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground uppercase">Start Date</Label>
+                  <p className="font-medium">{new Date(selectedLeave.startDate).toLocaleDateString()}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground uppercase">End Date</Label>
+                  <p className="font-medium">{new Date(selectedLeave.endDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground uppercase">Reason</Label>
+                <div className="p-3 bg-muted/30 rounded-md text-sm border">
+                  {selectedLeave.reason}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (selectedLeave) handleReject(selectedLeave.id);
+                setReviewDialogOpen(false);
+              }}
+              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              Reject Request
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedLeave) handleApprove(selectedLeave.id);
+                setReviewDialogOpen(false);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Approve Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Leave Balance Section Removed as per request (Dummy Data) */}
 
       {/* Leave History */}
@@ -225,25 +299,25 @@ const LeavePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${leave.status.toLowerCase() === 'approved' ? 'bg-green-100 text-green-700' :
-                      leave.status.toLowerCase() === 'rejected' ? 'bg-red-100 text-red-700' :
-                        'bg-yellow-100 text-yellow-700'
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${leave.status.toLowerCase() === 'approved' ? 'bg-green-100/50 text-green-700 border border-green-200' :
+                      leave.status.toLowerCase() === 'rejected' ? 'bg-red-100/50 text-red-700 border border-red-200' :
+                        'bg-yellow-100/50 text-yellow-700 border border-yellow-200'
                       }`}>
-                      {leave.status}
+                      {leave.status.toLowerCase() === 'pending' ? 'Pending Approval' : leave.status}
                     </span>
                     {((user?.role === 'admin') || (user?.role === 'hr' && leave.userRole?.toUpperCase() !== 'HR') || (user?.role === 'manager')) && (
                       <div className="flex gap-2">
                         {leave.status.toLowerCase() === 'pending' && (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => handleApprove(leave.id)} className="gap-1 border-green-200 hover:bg-green-50 text-green-700">
-                              <Check className="h-4 w-4" />
-                              Approve
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleReject(leave.id)} className="gap-1 border-red-200 hover:bg-red-50 text-red-700">
-                              <X className="h-4 w-4" />
-                              Reject
-                            </Button>
-                          </>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedLeave(leave);
+                              setReviewDialogOpen(true);
+                            }}
+                            className="bg-slate-900 text-white hover:bg-slate-800 font-semibold"
+                          >
+                            Review Request
+                          </Button>
                         )}
                         {(leave.status.toLowerCase() === 'approved' || leave.status.toLowerCase() === 'rejected') && (
                           <Button size="icon" variant="ghost" onClick={() => handleDelete(leave.id)} className="text-destructive hover:bg-destructive/10">

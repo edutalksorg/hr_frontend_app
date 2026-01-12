@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { apiService } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import {
   Users,
   Shield,
@@ -13,13 +13,15 @@ import {
   Megaphone,
   Trash2,
   Search,
-  Zap,
-  Filter,
+
+
   Monitor,
   Navigation,
   Landmark,
   Clock,
-  ChevronDown
+  ChevronDown,
+
+
 } from 'lucide-react';
 import type { User, Attendance, Branch } from '@/types';
 import { toast } from 'sonner';
@@ -67,16 +69,7 @@ class AdminErrorBoundary extends React.Component<{ children: React.ReactNode }, 
   }
 }
 
-const SafeTimeDisplay: React.FC<{ dateStr: string | undefined }> = ({ dateStr }) => {
-  if (!dateStr) return null;
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return <span className="text-red-500 font-bold text-[10px]">ERR</span>;
-    return <span>Sync: {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>;
-  } catch (e) {
-    return null;
-  }
-};
+
 
 // --- Interfaces ---
 interface UserListProps {
@@ -86,7 +79,8 @@ interface UserListProps {
   attendanceMap: Record<string, Attendance>;
   onBlock: (id: string) => void;
   onUnblock: (id: string) => void;
-  onApprove: (id: string, e?: React.MouseEvent) => void;
+
+  onReview: (user: User) => void;
   onDelete: (id: string) => void;
   onAssignBranch: (user: User) => void;
   showDelete?: boolean;
@@ -97,7 +91,7 @@ interface UserListProps {
 
 // --- High-End User Matrix Component (Accordion) ---
 const UserListSection: React.FC<UserListProps> = ({
-  title, users, icon: Icon, attendanceMap, onBlock, onUnblock, onApprove, onDelete, onAssignBranch, showDelete, onImageClick, isOpen, onToggle
+  title, users, icon: Icon, attendanceMap, onBlock, onUnblock, onReview, onDelete, onAssignBranch, showDelete, onImageClick, isOpen, onToggle
 }) => {
   const [localSearch, setLocalSearch] = useState('');
 
@@ -253,11 +247,42 @@ const UserListSection: React.FC<UserListProps> = ({
 
                           {/* Actions */}
                           <div className="w-24 shrink-0 flex justify-end items-center gap-1 opacity-100 lg:opacity-60 lg:group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" onClick={() => onAssignBranch(user)} className="h-7 w-7 rounded-md hover:bg-sky-50 hover:text-sky-600"><Landmark className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => user.isBlocked ? onUnblock(user.id) : onBlock(user.id)} className={cn("h-7 w-7 rounded-md transition-colors", user.isBlocked ? "text-red-500 hover:bg-red-50" : "text-slate-400 hover:text-red-500 hover:bg-red-50")}><Ban className="h-3.5 w-3.5" /></Button>
-                            <Link to={`/attendance/employee/${user.id}`}>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-slate-100 text-slate-400"><Clock className="h-3.5 w-3.5" /></Button>
-                            </Link>
+                            {!user.isApproved ? (
+                              <div className="flex items-center gap-2">
+                                <span className="hidden lg:inline-flex text-[10px] uppercase font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 tracking-wider">
+                                  Pending Review
+                                </span>
+                                <Button
+                                  size="sm"
+                                  onClick={() => onReview(user)}
+                                  className="h-8 px-4 rounded-lg bg-slate-900 text-white hover:bg-slate-800 text-[10px] uppercase font-bold tracking-widest shadow-sm border border-slate-900"
+                                  title="Review Request"
+                                >
+                                  Review Request
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                {showDelete && (
+                                  <Button variant="ghost" size="icon" onClick={() => onDelete(user.id)} className="h-7 w-7 rounded-md hover:bg-red-50 hover:text-red-600 text-slate-400" title="Delete">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="icon" onClick={() => onAssignBranch(user)} className="h-7 w-7 rounded-md hover:bg-sky-50 hover:text-sky-600" title="Assign Branch">
+                                  <Landmark className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                            <Button variant="ghost" size="icon" onClick={() => user.isBlocked ? onUnblock(user.id) : onBlock(user.id)} className={cn("h-7 w-7 rounded-md transition-colors", user.isBlocked ? "text-red-500 hover:bg-red-50" : "text-slate-400 hover:text-red-500 hover:bg-red-50")} title={user.isBlocked ? "Unblock" : "Block"}>
+                              <Ban className="h-3.5 w-3.5" />
+                            </Button>
+                            {user.isApproved && (
+                              <Link to={`/attendance/employee/${user.id}`}>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md hover:bg-slate-100 text-slate-400" title="History">
+                                  <Clock className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                            )}
                           </div>
                         </div>
 
@@ -290,6 +315,7 @@ const AdminPage: React.FC = () => {
 
   const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false);
   const [targetUser, setTargetUser] = useState<User | null>(null);
+  const [reviewUser, setReviewUser] = useState<User | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string>('Administrators');
@@ -375,8 +401,7 @@ const AdminPage: React.FC = () => {
     } catch (e) { toast.error('Command Error'); }
   };
 
-  const handleApproveUser = async (uId: string, e?: React.MouseEvent) => {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
+  const handleApproveUser = async (uId: string) => {
     try {
       toast.info('Verifying identity...');
       const updated = await apiService.approveUser(uId);
@@ -385,6 +410,14 @@ const AdminPage: React.FC = () => {
         toast.success('Identity Verified');
       }
     } catch (error) { toast.error('Verification Error'); }
+  };
+
+  const handleRejectUser = async (uId: string) => {
+    try {
+      await apiService.deleteUser(uId);
+      setUsers(p => p.filter(u => u.id !== uId));
+      toast.success('Request Rejected');
+    } catch (error) { toast.error('Rejection Failed'); }
   };
 
   const openBranchAssignDialog = (u: User) => {
@@ -473,11 +506,11 @@ const AdminPage: React.FC = () => {
             <div className="flex justify-end mb-2">
               <Button variant="ghost" size="sm" onClick={() => setExpandedSection('')} className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600">Collapse All</Button>
             </div>
-            <UserListSection title="Administrators" users={roleUsers('admin')} icon={Shield} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onApprove={handleApproveUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Administrators'} onToggle={() => toggleSection('Administrators')} />
-            <UserListSection title="HR Managers" users={roleUsers('hr')} icon={Users} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onApprove={handleApproveUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'HR Managers'} onToggle={() => toggleSection('HR Managers')} />
-            <UserListSection title="Managers" users={roleUsers('manager')} icon={UserCog} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onApprove={handleApproveUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Managers'} onToggle={() => toggleSection('Managers')} />
-            <UserListSection title="Marketing" users={roleUsers('marketing')} icon={Megaphone} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onApprove={handleApproveUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Marketing'} onToggle={() => toggleSection('Marketing')} />
-            <UserListSection title="Regular Employees" users={roleUsers('employee')} icon={Users} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onApprove={handleApproveUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Regular Employees'} onToggle={() => toggleSection('Regular Employees')} />
+            <UserListSection title="Administrators" users={roleUsers('admin')} icon={Shield} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onReview={setReviewUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Administrators'} onToggle={() => toggleSection('Administrators')} />
+            <UserListSection title="HR Managers" users={roleUsers('hr')} icon={Users} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onReview={setReviewUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'HR Managers'} onToggle={() => toggleSection('HR Managers')} />
+            <UserListSection title="Managers" users={roleUsers('manager')} icon={UserCog} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onReview={setReviewUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Managers'} onToggle={() => toggleSection('Managers')} />
+            <UserListSection title="Marketing" users={roleUsers('marketing')} icon={Megaphone} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onReview={setReviewUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Marketing'} onToggle={() => toggleSection('Marketing')} />
+            <UserListSection title="Regular Employees" users={roleUsers('employee')} icon={Users} attendanceMap={attendanceMap} onBlock={handleBlockUser} onUnblock={handleUnblockUser} onReview={setReviewUser} onAssignBranch={openBranchAssignDialog} onDelete={(id) => apiService.deleteUser(id).then(fetchInitialData)} onImageClick={setSelectedImage} showDelete={currentUser?.role === 'admin'} isOpen={expandedSection === 'Regular Employees'} onToggle={() => toggleSection('Regular Employees')} />
           </TabsContent>
 
           <TabsContent value="geolocation" className="animate-in slide-in-from-bottom-4 duration-500 h-full overflow-y-auto pb-20">
@@ -492,6 +525,85 @@ const AdminPage: React.FC = () => {
             <ShiftManagementPage hideHeader />
           </TabsContent>
         </Tabs>
+
+        {/* User Review Dialog */}
+        <Dialog open={!!reviewUser} onOpenChange={(open) => !open && setReviewUser(null)}>
+          <DialogContent className="sm:max-w-[425px] rounded-[30px] p-8 border border-slate-100 bg-white shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-slate-900">
+                Review Request
+              </DialogTitle>
+              <DialogDescription className="text-slate-500 font-medium">
+                Verify user identity before granting access.
+              </DialogDescription>
+            </DialogHeader>
+
+            {reviewUser && (
+              <div className="space-y-6 pt-4">
+                <div className="flex items-center gap-5 p-5 bg-slate-50 rounded-[20px] border border-slate-100">
+                  <Avatar className="h-16 w-16 rounded-xl border-2 border-white shadow-sm">
+                    <AvatarImage src={reviewUser.profilePhoto} />
+                    <AvatarFallback className="bg-slate-200 text-slate-500 font-bold text-lg">{reviewUser.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-bold text-lg text-slate-900 leading-tight">{reviewUser.username}</h4>
+                    <p className="text-sm text-slate-500 font-medium">{reviewUser.email}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white px-2 py-1 rounded-md border border-slate-200">
+                        {reviewUser.role}
+                      </span>
+                      {reviewUser.branch ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-sky-600 bg-sky-50 px-2 py-1 rounded-md border border-sky-100">
+                          {reviewUser.branch.name}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-1 rounded-md border border-amber-100">
+                          No Sector
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Request Metadata</p>
+                  <div className="grid grid-cols-2 gap-3 pl-1">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Created</p>
+                      <p className="text-xs font-bold text-slate-700">{new Date(reviewUser.createdAt || Date.now()).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Status</p>
+                      <p className="text-xs font-bold text-amber-500 uppercase">Pending Approval</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      handleRejectUser(reviewUser.id);
+                      setReviewUser(null);
+                    }}
+                    className="flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-widest text-red-500 hover:bg-red-50 hover:text-red-600"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleApproveUser(reviewUser.id);
+                      setReviewUser(null);
+                    }}
+                    className="flex-1 h-12 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20"
+                  >
+                    Approve User
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Branch Assignment Dialog */}
         <Dialog open={isBranchDialogOpen} onOpenChange={setIsBranchDialogOpen}>
