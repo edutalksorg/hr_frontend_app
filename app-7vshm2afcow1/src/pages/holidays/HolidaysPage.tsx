@@ -119,12 +119,29 @@ const HolidaysPage: React.FC = () => {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              className="rounded-md border"
+              className="rounded-md border w-full p-4"
+              classNames={{
+                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 w-full",
+                month: "space-y-4 w-full",
+                table: "w-full border-collapse space-y-1",
+                head_row: "grid grid-cols-7 w-full",
+                head_cell: "text-muted-foreground font-normal text-[0.8rem]",
+                row: "grid grid-cols-7 w-full mt-2",
+                cell: "relative p-1 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent",
+                day: "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 w-full p-0 font-normal aria-selected:opacity-100",
+              }}
               modifiers={{
                 holiday: holidayDates
               }}
               modifiersStyles={{
-                holiday: { backgroundColor: '#ef4444', color: 'white', fontWeight: 'bold' }
+                holiday: {
+                  background: 'linear-gradient(180deg, #FEF9C3 0%, #F59E0B 100%)', // Soft Gold to Rich Amber
+                  color: '#451A03', // Deepest Brown for maximum readability
+                  fontWeight: 'bold',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8)', // Gold Glow + Strong Shine
+                  border: '1px solid #D97706' // Dark Amber Border
+                }
               }}
             />
           </CardContent>

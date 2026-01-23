@@ -310,7 +310,14 @@ const DashboardPage: React.FC = () => {
               <div className={cn("w-2.5 h-2.5 rounded-full animate-pulse", todayAttendance && !todayAttendance.logoutTime ? "bg-emerald-400 shadow-[0_0_10px_#10b981]" : "bg-sky-200")} />
             </div>
 
-            {!todayAttendance ? (
+            {!todayAttendance && holidays.find(h => new Date(h.date).toDateString() === new Date().toDateString()) ? (
+              <div className="text-center py-2 h-12 flex flex-col items-center justify-center">
+                <p className="text-yellow-400 font-black text-xs uppercase tracking-widest">
+                  Holiday: {holidays.find(h => new Date(h.date).toDateString() === new Date().toDateString())?.name}
+                </p>
+                <p className="text-[10px] font-bold text-sky-100 pt-1 uppercase">Enjoy your day off</p>
+              </div>
+            ) : !todayAttendance ? (
               <Button onClick={handleCheckIn} className="w-full h-12 rounded-xl bg-white hover:bg-sky-50 text-sky-600 font-black uppercase text-[10px] tracking-[0.2em] gap-2 shadow-xl shadow-black/5 active:scale-95 transition-all">
                 <CheckCircle className="h-4 w-4" />
                 Initiate Check-In
@@ -414,10 +421,10 @@ const DashboardPage: React.FC = () => {
 
           {/* Quick Shortcuts */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-            <ActionFeature title="Intelligence Hub" desc="Team directory" link="/teams" icon={<UsersRound />} color="group-hover:text-blue-600" />
-            <ActionFeature title="Knowledge Base" desc="Internal docs" link="/documents" icon={<FileText />} color="group-hover:text-indigo-600" />
-            <ActionFeature title="Trajectory" desc="Growth metrics" link="/performance" icon={<TrendingUp />} color="group-hover:text-emerald-500" />
-            <ActionFeature title="Matrix Config" desc="System prefs" link="/settings" icon={<Zap />} color="group-hover:text-amber-500" />
+            <ActionFeature title="Intelligence Hub" desc="Team directory" link="/teams" icon={<UsersRound />} />
+            <ActionFeature title="Knowledge Base" desc="Internal docs" link="/documents" icon={<FileText />} />
+            <ActionFeature title="Trajectory" desc="Growth metrics" link="/performance" icon={<TrendingUp />} />
+            <ActionFeature title="Matrix Config" desc="System prefs" link="/settings" icon={<Zap />} />
           </div>
         </div>
 
@@ -502,6 +509,7 @@ const DashboardPage: React.FC = () => {
 };
 
 // 🛠️ Internal Premium Components
+// 🛠️ Internal Premium Components
 const KPICard = ({ title, value, sub, icon, color, bg, href }: any) => (
   <Link
     to={href || '#'}
@@ -529,13 +537,17 @@ const KPICard = ({ title, value, sub, icon, color, bg, href }: any) => (
   </Link>
 );
 
-const ActionFeature = ({ title, desc, link, icon, color }: any) => (
-  <Link to={link} className="premium-card p-5 bg-white border-slate-50 hover:border-blue-500/20 group shadow-sm hover:shadow-md transition-all duration-500">
-    <div className={cn("w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 mb-4 transition-all duration-500 group-hover:bg-blue-600 group-hover:text-white group-hover:scale-110", color)}>
-      {React.cloneElement(icon, { className: "h-4 w-4" })}
+const ActionFeature = ({ title, desc, link, icon }: any) => (
+  <Link to={link} className="premium-card p-5 bg-white border border-slate-100/50 hover:border-blue-500/20 group shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[28px] relative overflow-hidden">
+    <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50/50 rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-blue-100/50 transition-colors duration-500 opacity-0 group-hover:opacity-100" />
+
+    <div className="relative z-10">
+      <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mb-4 transition-all duration-300 group-hover:bg-blue-600 group-hover:text-white group-hover:scale-110 group-hover:rotate-3 shadow-sm group-hover:shadow-blue-500/30">
+        {React.cloneElement(icon, { className: "h-5 w-5" })}
+      </div>
+      <h4 className="text-sm font-black text-slate-900 tracking-tight mb-1 group-hover:text-blue-700 transition-colors uppercase">{title}</h4>
+      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-70 group-hover:opacity-100 transition-opacity">{desc}</p>
     </div>
-    <h4 className="text-sm font-black text-slate-900 tracking-tight mb-1 group-hover:text-blue-600 transition-colors uppercase">{title}</h4>
-    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-70 group-hover:opacity-100">{desc}</p>
   </Link>
 );
 

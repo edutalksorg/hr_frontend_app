@@ -351,7 +351,7 @@ class ApiService {
   }
 
   async getAllAttendance(): Promise<Attendance[]> {
-    const response = await this.client.get<Attendance[]>('/api/v1/admin/attendance/all');
+    const response = await this.client.get<Attendance[]>('/api/v1/attendance/all');
     return response.data;
   }
 

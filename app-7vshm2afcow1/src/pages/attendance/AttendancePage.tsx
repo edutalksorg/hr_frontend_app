@@ -77,6 +77,36 @@ const AttendancePage: React.FC = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentProgress, setCurrentProgress] = useState(0);
+
+  useEffect(() => {
+    const calculateProgress = () => {
+      // Default standard shift if none assigned
+      const startStr = currentUser?.shift?.startTime || '09:30';
+      const endStr = currentUser?.shift?.endTime || '18:30';
+
+      const now = new Date();
+      const [startH, startM] = startStr.split(':').map(Number);
+      const [endH, endM] = endStr.split(':').map(Number);
+
+      const startDate = new Date();
+      startDate.setHours(startH, startM, 0, 0);
+
+      const endDate = new Date();
+      endDate.setHours(endH, endM, 0, 0);
+
+      if (now < startDate) return 0;
+      if (now > endDate) return 100;
+
+      const total = endDate.getTime() - startDate.getTime();
+      const elapsed = now.getTime() - startDate.getTime();
+      return Math.min(100, Math.max(0, (elapsed / total) * 100));
+    };
+
+    setCurrentProgress(calculateProgress());
+    const interval = setInterval(() => setCurrentProgress(calculateProgress()), 60000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   const isManagementRole = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager';
 
@@ -161,7 +191,9 @@ const AttendancePage: React.FC = () => {
     late: (d: Date) => getDayStatus(d).status === 'Late',
     absent: (d: Date) => getDayStatus(d).status === 'Absent',
     leave: (d: Date) => ['Leave', 'Sick Leave'].includes(getDayStatus(d).status),
-    holiday: (d: Date) => ['Holiday', 'Weekend'].includes(getDayStatus(d).status),
+    weekend: (d: Date) => getDayStatus(d).status === 'Weekend',
+    officialHoliday: (d: Date) => getDayStatus(d).status === 'Holiday',
+    today: (d: Date) => new Date().toDateString() === d.toDateString(),
   };
 
   const modifiersClassNames = {
@@ -169,7 +201,30 @@ const AttendancePage: React.FC = () => {
     late: 'bg-amber-500 text-white font-bold hover:bg-amber-600 rounded-lg shadow-md shadow-amber-500/20',
     absent: 'bg-red-50 text-red-400 font-bold hover:bg-red-100 rounded-lg',
     leave: 'bg-indigo-600 text-white font-bold hover:bg-indigo-700 rounded-lg shadow-md shadow-indigo-500/20',
-    holiday: 'text-slate-300 font-medium',
+    weekend: 'text-slate-300 font-medium',
+    today: 'text-sky-700 font-black',
+  };
+
+  const modifiersStyles = {
+    officialHoliday: {
+      background: 'linear-gradient(180deg, #FEF9C3 0%, #F59E0B 100%)', // Soft Gold to Rich Amber
+      color: '#451A03', // Deepest Brown for maximum readability
+      fontWeight: 'bold',
+      borderRadius: '6px',
+      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8)', // Gold Glow + Strong Shine
+      border: '1px solid #D97706' // Dark Amber Border
+    },
+    today: {
+      background: `linear-gradient(0deg, #0EA5E9 ${currentProgress}%, #FFFFFF ${currentProgress}%)`, // Dark Sky Water
+      color: '#0F172A', // Dark text for contrast against both white and sky
+      fontWeight: '900', // Extra Bold
+      border: '2px solid #0EA5E9',
+      boxShadow: '0 0 15px rgba(14, 165, 233, 0.4)',
+      transform: 'scale(1.1)',
+      zIndex: 10,
+      position: 'relative' as 'relative',
+      transition: 'background 0.5s ease-in-out'
+    }
   };
 
   const [searchParams] = useSearchParams();
@@ -263,7 +318,18 @@ const AttendancePage: React.FC = () => {
                     disabled={(d) => d > new Date()}
                     modifiers={modifiers}
                     modifiersClassNames={modifiersClassNames}
-                    className="p-0 w-full [&_.rdp-day_button]:!w-9 [&_.rdp-day_button]:!h-9 [&_.rdp-head_cell]:text-slate-400 [&_.rdp-head_cell]:font-medium"
+                    modifiersStyles={modifiersStyles}
+                    classNames={{
+                      months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 w-full",
+                      month: "space-y-4 w-full",
+                      table: "w-full border-collapse space-y-1",
+                      head_row: "grid grid-cols-7 w-full",
+                      head_cell: "text-muted-foreground font-normal text-[0.8rem]",
+                      row: "grid grid-cols-7 w-full mt-2",
+                      cell: "relative p-1 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-accent",
+                      day: "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 w-full p-0 font-normal aria-selected:opacity-100",
+                    }}
+                    className="p-0 w-full"
                   />
                 </div>
 
@@ -272,6 +338,7 @@ const AttendancePage: React.FC = () => {
                   <LegendItem color="bg-amber-500" label="Late" />
                   <LegendItem color="bg-indigo-600" label="Leave" />
                   <LegendItem color="bg-red-200" label="Absent" />
+                  <LegendItem color="bg-yellow-400" label="Holiday" />
                 </div>
               </div>
 
@@ -304,6 +371,20 @@ const AttendancePage: React.FC = () => {
                       <h4 className="text-2xl font-black tracking-tight uppercase">
                         {selectedDate.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                       </h4>
+                      {selectedDate.toDateString() === new Date().toDateString() && (
+                        <div className="mt-3 relative">
+                          <div className="flex justify-between items-end mb-1">
+                            <span className="text-[9px] font-black text-sky-400 uppercase tracking-widest">Daily Goal</span>
+                            <span className="text-[9px] font-black text-white uppercase tracking-widest">{Math.round(currentProgress)}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                            <div
+                              style={{ width: `${currentProgress}%` }}
+                              className="h-full bg-gradient-to-r from-sky-400 to-blue-500 shadow-[0_0_10px_#38bdf8] transition-all duration-1000 ease-out"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-3">

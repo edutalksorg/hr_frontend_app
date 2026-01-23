@@ -22,6 +22,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const TeamDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -34,6 +35,7 @@ const TeamDetailPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedUserId, setSelectedUserId] = useState<string>('');
     const [open, setOpen] = useState(false);
+    const [viewMember, setViewMember] = useState<User | null>(null);
 
     useEffect(() => {
         fetchTeamData();
@@ -281,20 +283,24 @@ const TeamDetailPage: React.FC = () => {
             </div>
 
             {/* Team Members */}
-            <Card className="glass-card shadow-elegant">
+            <Card className="glass-card shadow-elegant flex flex-col overflow-hidden">
                 <CardHeader>
                     <CardTitle>Team Members ({teamMembers.length})</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="space-y-3">
+                <CardContent className="flex-1 overflow-hidden">
+                    <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                         {teamMembers.length === 0 ? (
                             <p className="text-muted-foreground">No members yet</p>
                         ) : (
                             teamMembers.map(member => (
-                                <div key={member.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
+                                <div
+                                    key={member.id}
+                                    className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-secondary/50 transition-colors cursor-pointer"
+                                    onClick={() => setViewMember(member)}
+                                >
                                     <div className="flex items-center gap-3">
-                                        <Avatar>
-                                            <AvatarImage src={member.profilePhoto} />
+                                        <Avatar className="h-10 w-10 border border-slate-200">
+                                            <AvatarImage src={member.profilePhoto} className="object-cover" />
                                             <AvatarFallback>{member.username?.charAt(0) || 'M'}</AvatarFallback>
                                         </Avatar>
                                         <div>
@@ -309,7 +315,10 @@ const TeamDetailPage: React.FC = () => {
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            onClick={() => handleRemoveMember(member.id)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemoveMember(member.id);
+                                            }}
                                             className="text-destructive hover:text-destructive"
                                         >
                                             <X className="h-4 w-4" />
@@ -321,6 +330,52 @@ const TeamDetailPage: React.FC = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Member Profile Dialog */}
+            <Dialog open={!!viewMember} onOpenChange={(open) => !open && setViewMember(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <div className="flex flex-col items-center gap-4 py-8">
+                        <Avatar className="h-40 w-40 border-4 border-white shadow-2xl">
+                            <AvatarImage
+                                src={viewMember?.profilePhoto}
+                                className="object-cover object-center"
+                            />
+                            <AvatarFallback className="text-5xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-500">
+                                {viewMember?.username?.charAt(0).toUpperCase() || 'U'}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="text-center space-y-2">
+                            <h2 className="text-2xl font-bold">{viewMember?.username}</h2>
+                            <p className="text-muted-foreground">{viewMember?.email}</p>
+                            <span className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary capitalize font-medium">
+                                {viewMember?.role?.replace('_', ' ')}
+                            </span>
+                        </div>
+
+                        <div className="w-full grid grid-cols-2 gap-4 mt-4 text-sm">
+                            <div className="p-3 bg-secondary/50 rounded-lg">
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Employee ID</p>
+                                <p className="font-medium">{viewMember?.employeeId || 'N/A'}</p>
+                            </div>
+                            <div className="p-3 bg-secondary/50 rounded-lg">
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Joining Date</p>
+                                <p className="font-medium">
+                                    {viewMember?.joiningDate
+                                        ? new Date(viewMember.joiningDate).toLocaleDateString()
+                                        : 'Not set'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {viewMember?.bio && (
+                            <div className="w-full p-4 bg-secondary/30 rounded-lg mt-2">
+                                <p className="text-muted-foreground text-xs uppercase tracking-wider mb-2">Bio</p>
+                                <p className="text-sm text-gray-700 leading-relaxed">{viewMember.bio}</p>
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

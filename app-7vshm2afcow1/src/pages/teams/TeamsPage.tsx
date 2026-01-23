@@ -98,19 +98,19 @@ const TeamsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 max-w-7xl mx-auto container py-8 pb-20">
+    <div className="space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto container px-4 sm:px-6 lg:px-8 py-8 pb-24">
       {/* 2. Page Header */}
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 border-b border-border/40 pb-6">
         <div>
-          <h1 className="text-4xl font-black text-foreground tracking-tight mb-2">Teams</h1>
-          <p className="text-muted-foreground font-medium">Collaborate with your team members</p>
+          <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tight mb-2">Teams</h1>
+          <p className="text-muted-foreground font-medium text-lg">Collaborate and manage your workforce units</p>
         </div>
 
         {/* Create Team Button */}
         {(user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager') && (
           <Button
             onClick={() => setCreateDialogOpen(true)}
-            className="h-12 px-6 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95"
+            className="h-12 px-8 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-xl shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
           >
             <Plus className="mr-2 h-5 w-5" />
             Create Team
@@ -119,16 +119,16 @@ const TeamsPage: React.FC = () => {
       </header>
 
       {/* 3. Content Area (Grid System) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-8">
         {loading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-64 rounded-[24px] bg-muted/40 animate-pulse border border-border/50" />
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-[400px] rounded-[32px] bg-muted/20 animate-pulse border border-border/50" />
           ))
         ) : teams.length === 0 ? (
-          <div className="col-span-full py-20 text-center rounded-[32px] border-2 border-dashed border-muted">
-            <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h3 className="text-xl font-bold text-foreground">No Teams Found</h3>
-            <p className="text-muted-foreground mt-2">Get started by creating a new team.</p>
+          <div className="col-span-full py-32 text-center rounded-[32px] border-2 border-dashed border-border/60 bg-muted/5">
+            <Users className="h-20 w-20 text-muted-foreground mx-auto mb-6 opacity-30" />
+            <h3 className="text-2xl font-bold text-foreground">No Teams Found</h3>
+            <p className="text-muted-foreground mt-2 text-lg">Get started by creating a new team.</p>
           </div>
         ) : (
           teams
@@ -145,43 +145,48 @@ const TeamsPage: React.FC = () => {
                 /* 4. Team Card Structure */
                 <Card
                   key={team.id}
-                  className="group border border-border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 rounded-[24px] bg-card overflow-hidden flex flex-col h-full"
+                  className="group relative border border-border/60 shadow-lg hover:shadow-2xl hover:border-blue-500/30 hover:-translate-y-1.5 transition-all duration-300 rounded-[32px] bg-card overflow-hidden flex flex-col h-full"
                 >
+                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+
                   {/* A. Card Header */}
-                  <div className="p-6 pb-2 flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
-                        <UsersRound className="h-6 w-6 text-primary group-hover:text-current transition-colors" />
+                  <div className="p-7 pb-4 flex items-start justify-between gap-5">
+                    <div className="flex items-center gap-4 w-full overflow-hidden">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300 shadow-inner">
+                        <UsersRound className="h-7 w-7" />
                       </div>
-                      <div>
-                        <CardTitle className="text-lg font-bold text-foreground leading-tight line-clamp-1" title={team.name}>
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-xl font-bold text-foreground leading-tight truncate pr-2" title={team.name}>
                           {team.name}
                         </CardTitle>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mt-1">
-                          {memberCount} {memberCount === 1 ? 'member' : 'members'}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="flex h-2 w-2 rounded-full bg-green-500" />
+                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* B. Card Body */}
-                  <CardContent className="p-6 pt-4 flex-1 space-y-6">
-                    <p className="text-sm text-muted-foreground line-clamp-3 min-h-[3em]">
-                      {team.description || "No description provided for this team."}
+                  <CardContent className="p-7 pt-4 flex-1 flex flex-col gap-6">
+                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 min-h-[4.5em]">
+                      {team.description || "No description provided for this team. Add a description to help members understand the team's purpose."}
                     </p>
 
-                    <div className="space-y-4">
+                    <div className="space-y-5 mt-auto">
                       {/* Team Leader */}
-                      <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
-                        <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
-                          <AvatarImage src={leader?.profilePhoto} />
-                          <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                      <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-border/40 group-hover:bg-blue-50/50 group-hover:border-blue-100/50 transition-colors">
+                        <Avatar className="h-12 w-12 border-[3px] border-background shadow-md">
+                          <AvatarImage src={leader?.profilePhoto} className="object-cover" />
+                          <AvatarFallback className="bg-blue-100 text-blue-700 font-black text-lg">
                             {leader?.username?.charAt(0).toUpperCase() || 'L'}
                           </AvatarFallback>
                         </Avatar>
                         <div className="overflow-hidden">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-0.5">Team Leader</p>
-                          <p className="text-sm font-bold text-foreground truncate">
+                          <p className="text-[10px] font-black uppercase text-blue-600/80 tracking-widest mb-0.5">Team Leader</p>
+                          <p className="text-sm font-bold text-foreground truncate w-full">
                             {leader?.username || "Not Assigned"}
                           </p>
                         </div>
@@ -189,25 +194,23 @@ const TeamsPage: React.FC = () => {
 
                       {/* Member Stack */}
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Members</p>
-                        </div>
-                        <div className="flex -space-x-3 pl-1 pb-1">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-3 ml-1">Team Members</p>
+                        <div className="flex -space-x-3.5 pl-1">
                           {members.slice(0, 5).map((member) => (
-                            <Avatar key={member.id} className="h-9 w-9 border-[3px] border-card shadow-sm transition-transform hover:z-10 hover:scale-110">
-                              <AvatarImage src={member.profilePhoto} />
-                              <AvatarFallback className="bg-muted text-muted-foreground text-[10px] font-bold">
+                            <Avatar key={member.id} className="h-10 w-10 border-[3px] border-white dark:border-slate-900 shadow-sm transition-transform hover:z-20 hover:scale-110 cursor-help" title={member.username}>
+                              <AvatarImage src={member.profilePhoto} className="object-cover" />
+                              <AvatarFallback className="bg-slate-100 text-slate-600 text-[10px] font-bold">
                                 {member.username?.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
                           ))}
                           {members.length > 5 && (
-                            <div className="h-9 w-9 rounded-full bg-muted border-[3px] border-card flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                            <div className="h-10 w-10 rounded-full bg-slate-100 border-[3px] border-white dark:border-slate-900 flex items-center justify-center text-[10px] font-black text-slate-500 shadow-sm z-10">
                               +{members.length - 5}
                             </div>
                           )}
                           {members.length === 0 && (
-                            <span className="text-sm text-muted-foreground italic h-9 flex items-center">No active members</span>
+                            <span className="text-sm text-muted-foreground italic h-10 flex items-center pl-2">No active members</span>
                           )}
                         </div>
                       </div>
@@ -215,9 +218,9 @@ const TeamsPage: React.FC = () => {
                   </CardContent>
 
                   {/* C. Card Footer */}
-                  <CardFooter className="p-4 bg-muted/10 border-t border-border mt-auto">
-                    <Button variant="outline" className="w-full rounded-xl h-11 border-border bg-background hover:bg-primary hover:text-primary-foreground hover:border-primary font-semibold transition-all shadow-sm" asChild>
-                      <Link to={`/teams/${team.id}`}>View Details</Link>
+                  <CardFooter className="p-6 bg-muted/5 border-t border-border/50">
+                    <Button variant="outline" className="w-full rounded-2xl h-12 border-2 border-border/60 bg-transparent hover:bg-blue-600 hover:text-white hover:border-blue-600 font-bold transition-all shadow-sm group-hover:shadow-md" asChild>
+                      <Link to={`/teams/${team.id}`}>View Team Details</Link>
                     </Button>
                   </CardFooter>
                 </Card>
@@ -228,11 +231,11 @@ const TeamsPage: React.FC = () => {
 
       {/* Create Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-md rounded-[32px] p-0 overflow-hidden bg-card border border-border shadow-2xl">
-          <DialogHeader className="p-8 bg-muted/20 border-b border-border">
-            <DialogTitle className="text-2xl font-black tracking-tight">Create New Team</DialogTitle>
-            <DialogDescription className="text-base">
-              Establish a new collaborative unit.
+        <DialogContent className="max-w-md rounded-[32px] p-0 overflow-hidden bg-card border border-border/50 shadow-2xl">
+          <DialogHeader className="p-8 bg-muted/20 border-b border-border/50">
+            <DialogTitle className="text-2xl font-black tracking-tight text-foreground">Create New Team</DialogTitle>
+            <DialogDescription className="text-base text-muted-foreground">
+              Establish a new collaborative unit for your organization.
             </DialogDescription>
           </DialogHeader>
           <div className="p-8 space-y-6">
@@ -242,7 +245,7 @@ const TeamsPage: React.FC = () => {
                 placeholder="e.g. Engineering Squad Alpha"
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
-                className="h-12 rounded-xl border-border bg-muted/30 focus:bg-background font-medium"
+                className="h-12 rounded-2xl border-border bg-muted/30 focus:bg-background font-medium focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
             <div className="space-y-3">
@@ -252,15 +255,15 @@ const TeamsPage: React.FC = () => {
                 value={newTeamDescription}
                 onChange={(e) => setNewTeamDescription(e.target.value)}
                 rows={4}
-                className="rounded-xl border-border bg-muted/30 focus:bg-background resize-none"
+                className="rounded-2xl border-border bg-muted/30 focus:bg-background resize-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
             </div>
           </div>
-          <DialogFooter className="p-6 bg-muted/20 border-t border-border gap-3">
-            <Button variant="ghost" onClick={() => setCreateDialogOpen(false)} className="rounded-xl h-12 px-6 font-bold text-muted-foreground hover:text-foreground">
+          <DialogFooter className="p-6 bg-muted/20 border-t border-border/50 gap-3">
+            <Button variant="ghost" onClick={() => setCreateDialogOpen(false)} className="rounded-xl h-12 px-6 font-bold text-muted-foreground hover:text-foreground hover:bg-muted/50">
               Cancel
             </Button>
-            <Button onClick={handleCreateTeam} disabled={isSubmitting} className="rounded-xl h-12 px-8 bg-primary text-primary-foreground font-black uppercase text-xs tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+            <Button onClick={handleCreateTeam} disabled={isSubmitting} className="rounded-xl h-12 px-8 bg-blue-600 text-white font-black uppercase text-xs tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 hover:scale-105 active:scale-95 transition-all">
               {isSubmitting ? 'Creating...' : 'Create Team'}
             </Button>
           </DialogFooter>

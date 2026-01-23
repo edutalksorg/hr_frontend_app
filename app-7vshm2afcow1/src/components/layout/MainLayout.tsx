@@ -85,13 +85,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex font-sans selection:bg-primary/20 selection:text-primary">
+    <div className="h-screen w-full bg-background flex font-sans overflow-hidden selection:bg-primary/20 selection:text-primary">
       {/* Sidebar Navigation */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-[300px] xl:w-[320px] bg-sidebar flex flex-col border-r border-sidebar-border shadow-2xl transition-all duration-500 ease-in-out transform',
-          'xl:translate-x-0 xl:static',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 bg-sidebar flex flex-col border-r border-sidebar-border shadow-2xl transition-transform duration-300 ease-in-out',
+          'w-[260px] md:w-[220px] lg:w-[260px]', // Responsive layout width
+          'md:translate-x-0 md:static', // Sticky/Static on Tablet+
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full' // Slide logic for Mobile
         )}
       >
         {/* Brand Header */}
@@ -198,9 +199,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Surface Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative transition-all bg-background">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative transition-all bg-background">
         {/* Compact Mobile Header */}
-        <header className="xl:hidden h-20 px-6 flex items-center justify-between bg-white/80 backdrop-blur-xl border-b border-border z-40 sticky top-0">
+        <header className="md:hidden h-20 px-6 flex items-center justify-between bg-white/80 backdrop-blur-xl border-b border-border z-40 sticky top-0 shrink-0">
           <Link to="/dashboard" className="font-black text-xl tracking-tight text-slate-900">Edu<span className="text-primary">Talks</span></Link>
           <Button
             variant="ghost"
@@ -213,7 +214,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         </header>
 
         {/* Global Page Wrapper */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar h-full relative">
           {/* Subtle Ambient Background - High Key */}
           <div className="fixed inset-0 pointer-events-none z-[-1]">
             <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-sky-100/40 rounded-full blur-[120px]" />
@@ -229,7 +230,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Backdrop for Mobile Sidebar */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 xl:hidden transition-all duration-500 animate-in fade-in"
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 md:hidden transition-all duration-500 animate-in fade-in"
           onClick={() => setSidebarOpen(false)}
         />
       )}

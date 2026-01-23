@@ -83,6 +83,8 @@
   }
 
   body {
+    height: 100%; /* Ensure body takes full height */
+    overflow: hidden; /* Prevent full-page scroll */
     background-color: hsl(var(--background));
     /* Soft Sky Gradient for Body */
     background-image: linear-gradient(to bottom right, #F8FAFC, #F0F9FF);
