@@ -122,6 +122,24 @@ const GeolocationManagementSection: React.FC<GeoSectionProps> = ({ title, users,
         );
     };
 
+    const handleQuickToggle = async (user: User, enabled: boolean) => {
+        setSavingId(user.id);
+        try {
+            const data = {
+                enabled,
+                latitude: user.officeLatitude || 0,
+                longitude: user.officeLongitude || 0,
+                radius: user.geoRadius || 100
+            };
+            await onUpdate(user.id, data);
+            toast.success(enabled ? 'Vector Locked' : 'Vector Unlocked');
+        } catch (e) {
+            toast.error('Toggle Failed');
+        } finally {
+            setSavingId(null);
+        }
+    };
+
     if (!users || users.length === 0) return null;
 
     return (
@@ -263,7 +281,18 @@ const GeolocationManagementSection: React.FC<GeoSectionProps> = ({ title, users,
                                     <div className="col-span-2 w-full flex lg:flex-col items-center justify-between lg:justify-center gap-2 bg-slate-900/50 lg:bg-transparent p-4 lg:p-0 rounded-xl lg:rounded-none">
                                         <span className="lg:hidden text-xs font-bold text-slate-400 uppercase">Geofence</span>
                                         <div className="flex flex-col items-center gap-1.5">
-                                            <Switch checked={editingId === user.id ? !!formData.enabled : (user.geoRestrictionEnabled || false)} onCheckedChange={(v) => editingId === user.id ? setFormData({ ...formData, enabled: v }) : null} disabled={editingId !== user.id} className="scale-90" />
+                                            <Switch
+                                                checked={editingId === user.id ? !!formData.enabled : (user.geoRestrictionEnabled || false)}
+                                                onCheckedChange={(v) => {
+                                                    if (editingId === user.id) {
+                                                        setFormData({ ...formData, enabled: v })
+                                                    } else {
+                                                        handleQuickToggle(user, v);
+                                                    }
+                                                }}
+                                                disabled={savingId === user.id}
+                                                className="scale-90"
+                                            />
                                             <div className="flex items-center gap-1.5">
                                                 {(editingId === user.id ? formData.enabled : user.geoRestrictionEnabled) ? (
                                                     <>
@@ -320,7 +349,18 @@ const GeolocationManagementSection: React.FC<GeoSectionProps> = ({ title, users,
 
                                     <div className="col-span-2 w-full flex justify-end gap-2 items-center">
                                         {editingId === user.id ? (
-                                            <Button onClick={async () => { setSavingId(user.id); try { await onUpdate(user.id, formData); setEditingId(null); } finally { setSavingId(null); } }} disabled={savingId === user.id} className="h-8 w-full lg:w-auto px-4 rounded-lg bg-emerald-600 text-white font-black uppercase text-[9px] tracking-widest shadow-lg active:scale-95 transition-all hover:bg-emerald-500 border border-emerald-500/50">
+                                            <Button onClick={async () => {
+                                                setSavingId(user.id);
+                                                try {
+                                                    await onUpdate(user.id, formData);
+                                                    setEditingId(null);
+                                                    toast.success('Vector Configuration Updated');
+                                                } catch (error) {
+                                                    toast.error('Update Failed: Authorization or Network Error');
+                                                } finally {
+                                                    setSavingId(null);
+                                                }
+                                            }} disabled={savingId === user.id} className="h-8 w-full lg:w-auto px-4 rounded-lg bg-emerald-600 text-white font-black uppercase text-[9px] tracking-widest shadow-lg active:scale-95 transition-all hover:bg-emerald-500 border border-emerald-500/50">
                                                 {savingId === user.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Confirm'}
                                             </Button>
                                         ) : (
@@ -675,7 +715,7 @@ const GeolocationPage: React.FC<{ hideHeader?: boolean }> = ({ hideHeader = fals
                             )}
 
                             {/* Marketing */}
-                            {currentUser?.role !== 'hr' && roleUsers('marketing').length > 0 && (
+                            {roleUsers('marketing').length > 0 && (
                                 <GeolocationManagementSection
                                     title="Marketing Vectors"
                                     users={roleUsers('marketing')}
@@ -691,7 +731,7 @@ const GeolocationPage: React.FC<{ hideHeader?: boolean }> = ({ hideHeader = fals
                             )}
 
                             {/* HR */}
-                            {currentUser?.role !== 'hr' && roleUsers('hr').length > 0 && (
+                            {roleUsers('hr').length > 0 && (
                                 <GeolocationManagementSection
                                     title="HR Strategic Hubs"
                                     users={roleUsers('hr')}

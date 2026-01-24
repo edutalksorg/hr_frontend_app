@@ -207,12 +207,12 @@ const AttendancePage: React.FC = () => {
 
   const modifiersStyles = {
     officialHoliday: {
-      background: 'linear-gradient(180deg, #FEF9C3 0%, #F59E0B 100%)', // Soft Gold to Rich Amber
-      color: '#451A03', // Deepest Brown for maximum readability
+      background: 'linear-gradient(180deg, #FDE68A 0%, #F59E0B 50%, #EA580C 100%)', // Rich Orange-Gold / Amber
+      color: '#431407', // Dark Red-Brown for contrast
       fontWeight: 'bold',
       borderRadius: '6px',
-      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8)', // Gold Glow + Strong Shine
-      border: '1px solid #D97706' // Dark Amber Border
+      boxShadow: '0 4px 10px rgba(234, 88, 12, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.8)', // Orange Glow
+      border: 'none'
     },
     today: {
       background: `linear-gradient(0deg, #0EA5E9 ${currentProgress}%, #FFFFFF ${currentProgress}%)`, // Dark Sky Water
