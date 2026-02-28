@@ -28,11 +28,7 @@ const EmployeeHistoryPage: React.FC = () => {
     const [isEditingJoiningDate, setIsEditingJoiningDate] = useState(false);
     const [newJoiningDate, setNewJoiningDate] = useState('');
 
-    // State for Edit Dialog
-    const [isEditOpen, setIsEditOpen] = useState(false);
-    const [editForm, setEditForm] = useState<{ status: string; checkIn: string; checkOut: string; remark: string }>({
-        status: '', checkIn: '', checkOut: '', remark: ''
-    });
+
 
     useEffect(() => {
         const fetchData = async () => {
@@ -129,73 +125,6 @@ const EmployeeHistoryPage: React.FC = () => {
 
 
 
-    const handleEditClick = () => {
-        if (!selectedRecord) return;
-        setEditForm({
-            status: selectedRecord.status || 'Present',
-            checkIn: selectedRecord.checkIn ? new Date(selectedRecord.checkIn).toISOString().slice(0, 16) : '',
-            checkOut: selectedRecord.checkOut ? new Date(selectedRecord.checkOut).toISOString().slice(0, 16) : '',
-            remark: selectedRecord.remark || ''
-        });
-        setIsEditOpen(true);
-    };
-
-    const handleUpdateAttendance = async () => {
-        if (!user || !selectedDate) return;
-        try {
-            // We need the attendance ID. Since selectedRecord works by date, we might not have ID directly if it was a DTO.
-            // But api.getAttendance returns Attendance[] with ID.
-            // Let's find the ID from 'attendance' state matching the date.
-            const dateStr = format(selectedDate, 'yyyy-MM-dd');
-            const att = attendance.find(a => a.date === dateStr || (a.loginTime && a.loginTime.startsWith(dateStr)));
-
-            // If no record exists, we can't update (create not supported yet). 
-            // BUT wait, user might want to Mark Present on an Absent day (create).
-            // Current backend update only updates EXISTING. 
-            // For now let's assume valid ID exists or fallback to showing error.
-
-            // If no record, or virtual ID, we create new
-            if (!att || att.id.length > 36) {
-                // Creation flow
-                if (!editForm.checkIn) {
-                    alert("Check-in time is required to create a new record.");
-                    return;
-                }
-
-                await apiService.createAttendance({
-                    userId: id!,
-                    status: editForm.status,
-                    checkIn: new Date(editForm.checkIn).toISOString(),
-                    checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : undefined,
-                    remark: editForm.remark
-                });
-            } else {
-                // Update flow
-                await apiService.updateAttendance(att.id, {
-                    status: editForm.status,
-                    checkIn: editForm.checkIn ? new Date(editForm.checkIn).toISOString() : undefined,
-                    checkOut: editForm.checkOut ? new Date(editForm.checkOut).toISOString() : undefined,
-                    remark: editForm.remark
-                });
-            }
-
-            setIsEditOpen(false);
-            // Refresh
-            const [attendanceData, statsData] = await Promise.all([
-                apiService.getAttendance(id!),
-                apiService.getAttendanceStats(id!)
-            ]);
-            setAttendance(attendanceData);
-            setStats(statsData);
-            // Re-fetch day
-            const dayData = await apiService.getAttendanceByDate(id!, dateStr);
-            setSelectedRecord(dayData);
-
-        } catch (error) {
-            console.error(error);
-            alert("Failed to update attendance");
-        }
-    };
 
     const handleBlockUser = async () => {
         if (!user || !confirm(`Are you sure you want to block ${user.username}?`)) return;
@@ -240,58 +169,7 @@ const EmployeeHistoryPage: React.FC = () => {
 
     return (
         <div className="space-y-6 max-w-[1600px] mx-auto">
-            {/* Edit Dialog */}
-            {isEditOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                    <div className="bg-background p-6 rounded-lg shadow-lg w-full max-w-md space-y-4">
-                        <h2 className="text-xl font-bold">Edit Attendance</h2>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Status</label>
-                            <select
-                                className="w-full p-2 border rounded"
-                                value={editForm.status}
-                                onChange={e => setEditForm({ ...editForm, status: e.target.value })}
-                            >
-                                <option value="Present">Present</option>
-                                <option value="Late">Late</option>
-                                <option value="Absent">Absent</option>
-                                <option value="Holiday">Holiday</option>
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Check In</label>
-                            <input
-                                type="datetime-local"
-                                className="w-full p-2 border rounded"
-                                value={editForm.checkIn}
-                                onChange={e => setEditForm({ ...editForm, checkIn: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Check Out</label>
-                            <input
-                                type="datetime-local"
-                                className="w-full p-2 border rounded"
-                                value={editForm.checkOut}
-                                onChange={e => setEditForm({ ...editForm, checkOut: e.target.value })}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Remark</label>
-                            <input
-                                type="text"
-                                className="w-full p-2 border rounded"
-                                value={editForm.remark}
-                                onChange={e => setEditForm({ ...editForm, remark: e.target.value })}
-                            />
-                        </div>
-                        <div className="flex justify-end gap-2 pt-4">
-                            <button onClick={() => setIsEditOpen(false)} className="px-4 py-2 border rounded hover:bg-accent">Cancel</button>
-                            <button onClick={handleUpdateAttendance} className="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90">Save</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+
 
             <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-10">
                 <div className="flex items-center gap-6">
@@ -542,11 +420,7 @@ const EmployeeHistoryPage: React.FC = () => {
                                     {selectedDate ? format(selectedDate, 'MMM do, yyyy') : 'Void Cycle'}
                                 </CardTitle>
                             </div>
-                            {selectedRecord && (
-                                <button onClick={handleEditClick} className="h-10 px-6 rounded-2xl bg-slate-900 text-white font-black uppercase text-[10px] tracking-widest shadow-xl active:scale-95 transition-all">
-                                    Override
-                                </button>
-                            )}
+
                         </CardHeader>
                         <CardContent className="pt-6">
                             {loadingDay ? (

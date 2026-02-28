@@ -362,12 +362,12 @@ class ApiService {
     return response.data;
   }
 
-  async updateAttendance(id: string, data: { status?: string, checkIn?: string, checkOut?: string, remark?: string }): Promise<Attendance> {
+  async updateAttendance(id: string, data: { status?: string, checkIn?: string, checkOut?: string, remark?: string, ipAddress?: string }): Promise<Attendance> {
     const response = await this.client.put<Attendance>(`/api/v1/attendance/update/${id}`, data);
     return response.data;
   }
 
-  async createAttendance(data: { userId: string, status?: string, checkIn?: string, checkOut?: string, remark?: string }): Promise<Attendance> {
+  async createAttendance(data: { userId: string, status?: string, checkIn?: string, checkOut?: string, remark?: string, ipAddress?: string }): Promise<Attendance> {
     const response = await this.client.post<Attendance>('/api/v1/attendance/manual', data);
     return response.data;
   }
